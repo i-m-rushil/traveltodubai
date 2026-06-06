@@ -1,0 +1,103 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Brand — TTD Brand Guide */
+  --brand: #e43d30;
+  --brand-dark: #c42f24;
+  --brand-glow: rgba(228, 61, 48, 0.15);
+
+  /* Brand Accents */
+  --burgundy: #692731;
+  --green: #3b5138;
+  --gray-mid: #6f7271;
+  --gray-light: #c8c8c8;
+
+  /* Dubai Gold */
+  --gold: #C9A050;
+  --gold-dark: #A07830;
+  --gold-light: #F0CC70;
+  --gold-dim: rgba(201, 160, 80, 0.12);
+  --gold-border: rgba(201, 160, 80, 0.3);
+
+  /* Desert Tones */
+  --sand: #FAF6ED;
+  --sand-mid: #F2EAD8;
+  --sand-dark: #E8DCC4;
+
+  /* Darks — TTD Brand Guide */
+  --midnight: #1d252c;
+  --charcoal: #252d34;
+  --navy-warm: #1d252c;
+
+  /* Teal accent */
+  --teal: #0D9488;
+  --teal-light: #2DD4BF;
+
+  /* Text */
+  --text-dark: #1d252c;
+  --text-mid: #5A4F3C;
+  --text-light: #9A8A72;
+
+  /* Borders */
+  --border: #E4DAC8;
+  --border-dark: #D0C4AE;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 4px rgba(29,37,44,0.07);
+  --shadow-md: 0 4px 16px rgba(29,37,44,0.12);
+  --shadow-lg: 0 12px 40px rgba(29,37,44,0.18);
+  --shadow-gold: 0 4px 20px rgba(201,160,80,0.25);
+
+  /* Fonts — TTD Brand Guide: Poppins across all styles */
+  --font-headline: 'Poppins', system-ui, sans-serif;
+  --font-ui: 'Poppins', system-ui, sans-serif;
+  --font-body: 'Poppins', system-ui, sans-serif;
+  --font-sans: 'Poppins', system-ui, sans-serif;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text-dark);
+  background: var(--sand);
+  line-height: 1.6;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+ul, ol { list-style: none; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+input { font-family: inherit; }
+
+/* Gold shimmer animation */
+@keyframes goldShimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Fade up on load */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--sand); }
+::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }

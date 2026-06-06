@@ -1,0 +1,8 @@
+/* App-level resets only — component styles are inline */
+* {
+  box-sizing: border-box;
+}
+
+main {
+  flex: 1;
+}
