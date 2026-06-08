@@ -111,7 +111,7 @@ export default function Header() {
               >
                 <SearchIco />
               </button>
-              <a href="#" style={{
+              <Link to="/plan-trip" style={{
                 background: 'var(--brand)', color: '#fff',
                 fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '12px',
                 letterSpacing: '0.5px', padding: '9px 20px', borderRadius: '6px',
@@ -123,7 +123,7 @@ export default function Header() {
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--brand)'; e.currentTarget.style.transform = 'none'; }}
               >
                 Plan Trip ✈
-              </a>
+              </Link>
             </div>
           )}
 
@@ -282,7 +282,7 @@ export default function Header() {
             ))}
           </div>
           <div style={{ padding: '20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-            <a href="#" style={{
+            <Link to="/plan-trip" onClick={() => setMenuOpen(false)} style={{
               display: 'block', textAlign: 'center',
               background: 'var(--brand)', color: '#fff',
               fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '14px',
@@ -290,7 +290,7 @@ export default function Header() {
               boxShadow: '0 4px 16px rgba(177,19,47,0.3)',
             }}>
               Plan My Dubai Trip ✈
-            </a>
+            </Link>
           </div>
         </div>
       )}

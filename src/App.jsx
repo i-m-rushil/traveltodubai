@@ -23,6 +23,7 @@ import ReportComplaintPage from './pages/ReportComplaintPage';
 import TermsPage from './pages/TermsPage';
 import WorkWithUsPage from './pages/WorkWithUsPage';
 import AdvertiseWithUsPage from './pages/AdvertiseWithUsPage';
+import PlanTripPage from './pages/PlanTripPage';
 import LoginPage from './pages/LoginPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -79,6 +80,7 @@ function SiteLayout() {
           <Route path="/terms"             element={<TermsPage />} />
           <Route path="/work-with-us"      element={<WorkWithUsPage />} />
           <Route path="/advertise"         element={<AdvertiseWithUsPage />} />
+          <Route path="/plan-trip"         element={<PlanTripPage />} />
           <Route path="*"                  element={<HomePage />} />
         </Routes>
       </main>

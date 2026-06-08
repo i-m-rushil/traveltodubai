@@ -316,10 +316,21 @@ export default function TopBar() {
         height: '46px', gap: '16px',
       }}>
 
-        {/* Left: Date */}
-        <span style={{ fontFamily: 'var(--font-ui)', fontSize: '12px', color: '#fff', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
-          {today}
-        </span>
+        {/* Left: Social icons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {[
+            { label: 'Instagram', icon: <IgIcon /> },
+            { label: 'TikTok',    icon: <TkIcon /> },
+            { label: 'YouTube',   icon: <YtIcon /> },
+          ].map(({ label, icon }) => (
+            <a key={label} href="#" aria-label={label} style={{ color: '#fff', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
+              onMouseLeave={e => e.currentTarget.style.color = '#fff'}
+            >
+              {icon}
+            </a>
+          ))}
+        </div>
 
         {/* Center: Quick info */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -343,20 +354,11 @@ export default function TopBar() {
           </a>
         </div>
 
-        {/* Right: Social + Subscribe */}
+        {/* Right: Date + Login */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {[
-            { label: 'Instagram', icon: <IgIcon /> },
-            { label: 'TikTok',    icon: <TkIcon /> },
-            { label: 'YouTube',   icon: <YtIcon /> },
-          ].map(({ label, icon }) => (
-            <a key={label} href="#" aria-label={label} style={{ color: '#fff', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
-              onMouseLeave={e => e.currentTarget.style.color = '#fff'}
-            >
-              {icon}
-            </a>
-          ))}
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: '12px', color: '#fff', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
+            {today}
+          </span>
           <div style={{ width: '1px', height: '14px', background: 'rgba(255,255,255,0.12)' }} />
           <Link to="/login" style={{
             background: 'linear-gradient(135deg, var(--gold) 0%, var(--gold-dark) 100%)',
@@ -402,6 +404,6 @@ function MosqueIcon()   {
   );
 }
 function PlaneIcon()    { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21 4 19 4c-2 0-2.5 0-3.5 1L12 9 3.8 6.2A.5.5 0 0 0 3 6.5l1.7 8.7c.2.9.8 1.7 1.7 2l4.6 1.3 1.4 1.4c.2.2.5.3.8.3h.7c.4 0 .8-.3.9-.7l.7-2.1z"/></svg>; }
-function IgIcon()       { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>; }
-function TkIcon()       { return <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.79 1.52V6.76a4.85 4.85 0 0 1-1.02-.07z"/></svg>; }
-function YtIcon()       { return <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="#1d252c"/></svg>; }
+function IgIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>; }
+function TkIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.79 1.52V6.76a4.85 4.85 0 0 1-1.02-.07z"/></svg>; }
+function YtIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="#1d252c"/></svg>; }

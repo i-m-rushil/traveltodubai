@@ -6,9 +6,9 @@
 
 :root {
   /* Brand — TTD Brand Guide */
-  --brand: #e43d30;
-  --brand-dark: #c42f24;
-  --brand-glow: rgba(228, 61, 48, 0.15);
+  --brand: #b1132f;
+  --brand-dark: #8e0f26;
+  --brand-glow: rgba(177, 19, 47, 0.15);
 
   /* Brand Accents */
   --burgundy: #692731;
