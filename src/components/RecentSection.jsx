@@ -4,7 +4,7 @@ import { recentArticles, popularArticles } from '../data/mockData';
 import { getArticleUid } from '../data/articles';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-export default function RecentSection() {
+export default function RecentSection({ title = 'Latest from Dubai', articles = recentArticles, viewAllLink = '/category/all' }) {
   const isMobile = useIsMobile();
   return (
     <section style={{ background: 'var(--sand)', padding: isMobile ? '40px 0' : '64px 0' }}>
@@ -22,11 +22,11 @@ export default function RecentSection() {
               color: 'var(--text-dark)',
               margin: 0,
             }}>
-              Latest from Dubai
+              {title}
             </h2>
           </div>
           <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-          <Link to="/category/all" style={{
+          <Link to={viewAllLink} style={{
             fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '12px',
             letterSpacing: '0.5px', color: 'var(--brand)',
             display: 'flex', alignItems: 'center', gap: '4px',
@@ -44,7 +44,7 @@ export default function RecentSection() {
 
           {/* Articles */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {recentArticles.map((article, i) => (
+            {articles.map((article, i) => (
               <ArticleCard key={article.id} article={article} featured={i === 0} />
             ))}
 

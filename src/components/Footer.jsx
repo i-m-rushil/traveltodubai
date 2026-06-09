@@ -4,18 +4,26 @@ import { useIsMobile } from '../hooks/useIsMobile';
 const year = new Date().getFullYear();
 
 const LINK_MAP = {
-  'Our Story':        '/about',
-  'Editorial Team':   '/about',
-  'Press & Media':    '/press',
-  'Partnerships':     '/advertise',
-  'Advertise With Us':'/advertise',
-  'Work With Us':     '/work-with-us',
-  'FAQs':             '/faq',
-  'Contact Us':       '/contact',
-  'Help Center':      '/faq',
-  'Privacy Policy':   '/privacy-policy',
-  'Terms of Service': '/terms',
-  'Report Complaint': '/report-complaint',
+  'Our Story':           '/about',
+  'Editorial Team':      '/about',
+  'Press & Media':       '/press',
+  'Partnerships':        '/advertise',
+  'Advertise With Us':   '/advertise',
+  'Work With Us':        '/work-with-us',
+  'FAQs':                '/faq',
+  'Contact Us':          '/contact',
+  'Help Center':         '/faq',
+  'Privacy Policy':      '/privacy-policy',
+  'Terms of Service':    '/terms',
+  'Report Complaint':    '/report-complaint',
+  'Editor\'s Picks':     '/category/all',
+  'Lifestyle & Culture': '/category/lifestyle',
+  'Food & Drinks':       '/category/food',
+  'Things To Do':        '/category/attractions',
+  'Latest News':         '/category/travel',
+  'Dubai Travel Guide':  '/category/all',
+  'Beaches':             '/category/beaches',
+  'Shopping':            '/category/shopping',
 };
 
 const BOTTOM_MAP = {
@@ -27,6 +35,10 @@ const columns = [
   {
     heading: 'About Us',
     links: ['Our Story', 'Editorial Team', 'Press & Media', 'Partnerships', 'Advertise With Us', 'Work With Us'],
+  },
+  {
+    heading: 'Explore',
+    links: ['Editor\'s Picks', 'Lifestyle & Culture', 'Food & Drinks', 'Things To Do', 'Latest News', 'Dubai Travel Guide', 'Beaches', 'Shopping'],
   },
   {
     heading: 'Destinations',
@@ -83,7 +95,7 @@ export default function Footer() {
     <footer style={{ background: 'var(--midnight)', color: '#fff', marginTop: 'auto', borderTop: '1px solid rgba(201,160,80,0.15)' }}>
       {/* Main content */}
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '40px 16px 32px' : '48px 24px 40px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr repeat(4, auto)', gap: isMobile ? '24px' : '48px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr repeat(5, auto)', gap: isMobile ? '24px' : '40px', alignItems: 'start' }}>
 
           {/* Brand column */}
           <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
@@ -91,7 +103,7 @@ export default function Footer() {
               <img
                 src="/Travel-to-Dubai-Logo.svg"
                 alt="Travel to Dubai"
-                style={{ height: '72px', width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }}
+                style={{ height: '100px', width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }}
               />
             </div>
 

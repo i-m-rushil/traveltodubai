@@ -7,9 +7,15 @@ import BreakingNews from './components/BreakingNews';
 import FeaturedGridSection from './components/FeaturedGridSection';
 import ExperiencesSection from './components/ExperiencesSection';
 import RecentSection from './components/RecentSection';
-import CategorySection from './components/CategorySection';
 import AnalysisSection from './components/AnalysisSection';
 import AdBanner from './components/AdBanner';
+import NewsletterPopup from './components/NewsletterPopup';
+import {
+  latestNewsArticles,
+  foodDrinksArticles,
+  thingsToDoArticles,
+  lifestyleAndCultureArticles,
+} from './data/mockData';
 import Footer from './components/Footer';
 import CookieBanner from './components/CookieBanner';
 import CategoryPage from './pages/CategoryPage';
@@ -52,9 +58,14 @@ function HomePage() {
       <FeaturedGridSection />
       <ExperiencesSection />
       <AdBanner />
-      <RecentSection />
+      <RecentSection title="Lifestyle & Culture" articles={lifestyleAndCultureArticles} viewAllLink="/category/lifestyle" />
       <AdBanner />
-      <CategorySection />
+      <RecentSection title="Food & Drinks" articles={foodDrinksArticles} viewAllLink="/category/food" />
+      <AdBanner />
+      <RecentSection title="Things To Do in Dubai" articles={thingsToDoArticles} viewAllLink="/category/attractions" />
+      <AdBanner />
+      <RecentSection title="Latest News from Dubai" articles={latestNewsArticles} viewAllLink="/category/travel" />
+      <AdBanner />
       <AnalysisSection />
       <AdBanner />
     </>
@@ -86,6 +97,7 @@ function SiteLayout() {
       </main>
       <Footer />
       <CookieBanner />
+      <NewsletterPopup />
     </div>
   );
 }
