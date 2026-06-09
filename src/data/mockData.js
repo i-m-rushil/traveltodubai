@@ -819,7 +819,7 @@ export const navLinks = [
   },
   {
     label: "News",
-    slug: "news",
+    slug: "travel",
     cols: 3,
     sub: [
       { label: "Travel",  img: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=320&q=70&auto=format&fit=crop" },
@@ -829,7 +829,7 @@ export const navLinks = [
   },
   {
     label: "Food & Drinks",
-    slug: "food",
+    slug: "eat-drink",
     cols: 4,
     sub: [
       { label: "Restaurants", img: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=320&q=70&auto=format&fit=crop" },
@@ -844,7 +844,7 @@ export const navLinks = [
   },
   {
     label: "Things To Do",
-    slug: "things-to-do",
+    slug: "experiences",
     cols: 4,
     sub: [
       { label: "Attractions",     img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=320&q=70&auto=format&fit=crop" },
@@ -859,7 +859,7 @@ export const navLinks = [
   },
   {
     label: "Other Emirates",
-    slug: "emirates",
+    slug: "travel",
     cols: 6,
     sub: [
       { label: "Abu Dhabi",      specialty: "Ferrari World",    img: "https://images.unsplash.com/photo-1578152882785-df9744e359e5?w=320&q=70&auto=format&fit=crop" },
@@ -872,7 +872,7 @@ export const navLinks = [
   },
   {
     label: "Prayer Time",
-    slug: "prayer-times",
+    slug: "culture",
     cols: 3,
     sub: [
       { label: "Dubai",          specialty: "Burj Khalifa",           img: "https://images.unsplash.com/flagged/photo-1559717865-a99cac1c95d8?w=320&q=70&auto=format&fit=crop" },

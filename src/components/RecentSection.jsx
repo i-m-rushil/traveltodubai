@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { recentArticles, popularArticles } from '../data/mockData';
-import { getArticleUid } from '../data/articles';
+import { getMostViewedArticles } from '../lib/supabase';
+import { normalizeArticles } from '../lib/normalize';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-export default function RecentSection({ title = 'Latest from Dubai', articles = recentArticles, viewAllLink = '/category/all' }) {
+export default function RecentSection({ title = 'Latest from Dubai', articles = [], viewAllLink = '/category/all' }) {
   const isMobile = useIsMobile();
   return (
     <section style={{ background: 'var(--sand)', padding: isMobile ? '40px 0' : '64px 0' }}>
@@ -171,7 +171,7 @@ function ArticleCard({ article, featured }) {
           {article.excerpt}
         </p>
 
-        <Link to={`/article/${getArticleUid(article.title)}`} style={{
+        <Link to={`/article/${article.slug}`} style={{
           fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '11px',
           letterSpacing: '0.5px', color: 'var(--brand)',
           display: 'flex', alignItems: 'center', gap: '6px',
@@ -188,34 +188,30 @@ function ArticleCard({ article, featured }) {
 }
 
 function Sidebar() {
-  const [activeTab, setActiveTab] = useState('Popular');
-  const tabs = ['Popular', 'Recent', 'Trending'];
+  const [popular, setPopular] = useState([]);
+
+  useEffect(() => {
+    getMostViewedArticles(5).then(({ data }) => {
+      setPopular(normalizeArticles(data));
+    });
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* Popular articles */}
       <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-        <div style={{ display: 'flex', borderBottom: '2px solid var(--border)' }}>
-          {tabs.map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              flex: 1, fontFamily: 'var(--font-ui)', fontWeight: 600,
-              fontSize: '11px', letterSpacing: '0.5px',
-              padding: '12px 4px', cursor: 'pointer', background: 'transparent',
-              color: activeTab === tab ? 'var(--brand)' : 'var(--text-light)',
-              borderBottom: activeTab === tab ? '2px solid var(--brand)' : '2px solid transparent',
-              marginBottom: '-2px', transition: 'all 0.2s',
-            }}>
-              {tab}
-            </button>
-          ))}
+        <div style={{ background: 'var(--midnight)', padding: '12px 16px' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: '11px', letterSpacing: '1px', textTransform: 'uppercase', color: '#fff' }}>
+            Most Popular
+          </span>
         </div>
 
         <div>
-          {popularArticles.map((a, i) => (
-            <Link key={a.id} to={`/article/${getArticleUid(a.title)}`} style={{
+          {popular.map((a, i) => (
+            <Link key={a.id} to={`/article/${a.slug}`} style={{
               display: 'flex', gap: '12px', padding: '12px 16px',
-              borderBottom: i < popularArticles.length - 1 ? '1px solid var(--border)' : 'none',
+              borderBottom: i < popular.length - 1 ? '1px solid var(--border)' : 'none',
               transition: 'background 0.15s', alignItems: 'flex-start',
               textDecoration: 'none',
             }}

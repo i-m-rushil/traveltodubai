@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { categoryArticles } from '../data/mockData';
-import { getArticleUid } from '../data/articles';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const TABS = ['Lifestyle', 'Shopping', 'Food & Dining', 'Nightlife'];
@@ -117,7 +116,7 @@ function FeaturedCard({ article }) {
           <span style={{ fontFamily: 'var(--font-ui)', fontSize: '11px', color: 'var(--text-light)' }}>
             {article.author} · {article.date}
           </span>
-          <Link to={`/article/${getArticleUid(article.title)}`} style={{
+          <Link to={`/article/${article.uid || 'unknown'}`} style={{
             fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '11px',
             color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '4px',
             textDecoration: 'none',
@@ -133,7 +132,7 @@ function FeaturedCard({ article }) {
 function ListCard({ article }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <Link to={`/article/${getArticleUid(article.title)}`} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+    <Link to={`/article/${article.uid || 'unknown'}`} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{
         display: 'grid', gridTemplateColumns: '100px 1fr', gap: '14px',
         background: '#fff', borderRadius: '10px', overflow: 'hidden',
@@ -176,7 +175,7 @@ function GridCard({ article }) {
   const navigate = useNavigate();
   return (
     <article onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/article/${getArticleUid(article.title)}`)}
+      onClick={() => navigate(`/article/${article.uid || 'unknown'}`)}
       style={{
         background: '#fff', borderRadius: '10px', overflow: 'hidden',
         border: '1px solid var(--border)',

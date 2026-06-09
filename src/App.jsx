@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import TopBar from './components/TopBar';
 import Header from './components/Header';
 import HeroSlider from './components/HeroSlider';
@@ -10,12 +10,8 @@ import RecentSection from './components/RecentSection';
 import AnalysisSection from './components/AnalysisSection';
 import AdBanner from './components/AdBanner';
 import NewsletterPopup from './components/NewsletterPopup';
-import {
-  latestNewsArticles,
-  foodDrinksArticles,
-  thingsToDoArticles,
-  lifestyleAndCultureArticles,
-} from './data/mockData';
+import { getPublishedArticles, getCategoryIdBySlug } from './lib/supabase';
+import { normalizeArticles } from './lib/normalize';
 import Footer from './components/Footer';
 import CookieBanner from './components/CookieBanner';
 import CategoryPage from './pages/CategoryPage';
@@ -51,6 +47,23 @@ function ScrollToTop() {
 }
 
 function HomePage() {
+  const [lifestyle, setLifestyle]     = useState([]);
+  const [food, setFood]               = useState([]);
+  const [experiences, setExperiences] = useState([]);
+  const [travel, setTravel]           = useState([]);
+
+  useEffect(() => {
+    const load = async (slug, setter) => {
+      const catId = await getCategoryIdBySlug(slug);
+      const { data } = await getPublishedArticles({ categoryId: catId, limit: 6 });
+      setter(normalizeArticles(data));
+    };
+    load('lifestyle',   setLifestyle);
+    load('eat-drink',   setFood);
+    load('experiences', setExperiences);
+    load('travel',      setTravel);
+  }, []);
+
   return (
     <>
       <HeroSlider />
@@ -58,13 +71,13 @@ function HomePage() {
       <FeaturedGridSection />
       <ExperiencesSection />
       <AdBanner />
-      <RecentSection title="Lifestyle & Culture" articles={lifestyleAndCultureArticles} viewAllLink="/category/lifestyle" />
+      <RecentSection title="Lifestyle & Culture"       articles={lifestyle}    viewAllLink="/category/lifestyle" />
       <AdBanner />
-      <RecentSection title="Food & Drinks" articles={foodDrinksArticles} viewAllLink="/category/food" />
+      <RecentSection title="Food & Drinks"             articles={food}         viewAllLink="/category/eat-drink" />
       <AdBanner />
-      <RecentSection title="Things To Do in Dubai" articles={thingsToDoArticles} viewAllLink="/category/attractions" />
+      <RecentSection title="Things To Do in Dubai"     articles={experiences}  viewAllLink="/category/experiences" />
       <AdBanner />
-      <RecentSection title="Latest News from Dubai" articles={latestNewsArticles} viewAllLink="/category/travel" />
+      <RecentSection title="Latest News from Dubai"    articles={travel}       viewAllLink="/category/travel" />
       <AdBanner />
       <AnalysisSection />
       <AdBanner />
@@ -81,7 +94,7 @@ function SiteLayout() {
         <Routes>
           <Route path="/"                  element={<HomePage />} />
           <Route path="/category/:slug"    element={<CategoryPage />} />
-          <Route path="/article/:id"       element={<ArticlePage />} />
+          <Route path="/article/:slug"     element={<ArticlePage />} />
           <Route path="/about"             element={<AboutPage />} />
           <Route path="/faq"               element={<FAQPage />} />
           <Route path="/contact"           element={<ContactPage />} />

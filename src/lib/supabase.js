@@ -38,16 +38,71 @@ export function articlesQuery() {
     `);
 }
 
-export async function getPublishedArticles({ categorySlug, limit = 12, offset = 0 } = {}) {
+export async function getPublishedArticles({ categorySlug, categoryId, limit = 12, offset = 0 } = {}) {
   let q = articlesQuery()
     .eq('status', 'published')
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (categorySlug && categorySlug !== 'all') {
-    q = q.eq('article_categories.slug', categorySlug);
+  if (categoryId) {
+    q = q.eq('category_id', categoryId);
   }
-  return q;
+  return await q;
+}
+
+export async function getCategoryIdBySlug(slug) {
+  if (!slug || slug === 'all') return null;
+  const { data } = await supabase
+    .from('article_categories')
+    .select('id')
+    .eq('slug', slug)
+    .single();
+  return data?.id || null;
+}
+
+export async function getAllCategories() {
+  return supabase
+    .from('article_categories')
+    .select('id, slug, label, color')
+    .order('label');
+}
+
+export async function getArticleCount(categoryId) {
+  let q = supabase
+    .from('articles')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'published');
+  if (categoryId) q = q.eq('category_id', categoryId);
+  const { count } = await q;
+  return count || 0;
+}
+
+export async function getMostViewedArticles(limit = 5) {
+  return supabase
+    .from('articles')
+    .select(`
+      id, title, slug, views, published_at,
+      category:article_categories(slug, label, color),
+      author:profiles(name)
+    `)
+    .eq('status', 'published')
+    .order('views', { ascending: false })
+    .limit(limit);
+}
+
+export async function getRelatedArticles(categoryId, excludeId, limit = 3) {
+  return supabase
+    .from('articles')
+    .select(`
+      id, title, slug, excerpt, featured_image, published_at, read_time,
+      category:article_categories(id, slug, label, color),
+      author:profiles(name)
+    `)
+    .eq('status', 'published')
+    .eq('category_id', categoryId)
+    .neq('id', excludeId)
+    .order('published_at', { ascending: false })
+    .limit(limit);
 }
 
 export async function getArticleBySlug(slug) {

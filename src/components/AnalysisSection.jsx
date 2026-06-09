@@ -1,11 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { analysisArticles, mostViewedAnalysis, tipsArticles } from '../data/mockData';
-import { getArticleUid } from '../data/articles';
+import { getPublishedArticles, getMostViewedArticles } from '../lib/supabase';
+import { normalizeArticles } from '../lib/normalize';
 import { useIsMobile } from '../hooks/useIsMobile';
+
+const TIPS = [
+  'Best time to visit: November to March for cool, sunny weather.',
+  'Use the Nol card — works on metro, bus, and water taxi.',
+  'Friday brunch is a Dubai institution. Book weeks ahead.',
+  'Dress modestly when visiting malls, souks, or government buildings.',
+  'Download Careem or Uber — much cheaper than hotel taxis.',
+];
 
 export default function AnalysisSection() {
   const isMobile = useIsMobile();
+  const [guides, setGuides]       = useState([]);
+  const [mostViewed, setMostViewed] = useState([]);
+
+  useEffect(() => {
+    getPublishedArticles({ limit: 4 }).then(({ data }) => setGuides(normalizeArticles(data)));
+    getMostViewedArticles(5).then(({ data }) => setMostViewed(normalizeArticles(data)));
+  }, []);
+
   return (
     <section style={{ background: 'var(--sand)', padding: isMobile ? '40px 0' : '64px 0' }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 16px' : '0 24px' }}>
@@ -38,7 +54,7 @@ export default function AnalysisSection() {
           {/* Articles grid */}
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
-              {analysisArticles.map(article => (
+              {guides.map(article => (
                 <GuideCard key={article.id} article={article} />
               ))}
             </div>
@@ -69,10 +85,10 @@ export default function AnalysisSection() {
                   Most Viewed
                 </h4>
               </div>
-              {mostViewedAnalysis.map((item, i) => (
-                <Link key={item.id} to={`/article/${getArticleUid(item.title)}`} style={{
+              {mostViewed.map((item, i) => (
+                <Link key={item.id} to={`/article/${item.slug}`} style={{
                   display: 'flex', gap: '14px', padding: '13px 18px',
-                  borderBottom: i < mostViewedAnalysis.length - 1 ? '1px solid var(--border)' : 'none',
+                  borderBottom: i < mostViewed.length - 1 ? '1px solid var(--border)' : 'none',
                   alignItems: 'flex-start', transition: 'background 0.15s',
                   textDecoration: 'none',
                 }}
@@ -114,10 +130,10 @@ export default function AnalysisSection() {
                 </h4>
               </div>
               <div style={{ padding: '6px 0' }}>
-                {tipsArticles.map((tip, i) => (
+                {TIPS.map((tip, i) => (
                   <a key={i} href="#" style={{
                     display: 'flex', gap: '12px', padding: '11px 18px',
-                    borderBottom: i < tipsArticles.length - 1 ? '1px solid var(--border)' : 'none',
+                    borderBottom: i < TIPS.length - 1 ? '1px solid var(--border)' : 'none',
                     alignItems: 'flex-start', transition: 'background 0.15s',
                   }}
                     onMouseEnter={e => e.currentTarget.style.background = 'var(--sand)'}
@@ -154,7 +170,7 @@ function GuideCard({ article }) {
 
   return (
     <article onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/article/${getArticleUid(article.title)}`)}
+      onClick={() => navigate(`/article/${article.slug}`)}
       style={{
         background: '#fff', borderRadius: '10px', overflow: 'hidden',
         boxShadow: hovered ? 'var(--shadow-md)' : 'var(--shadow-sm)',

@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
-import {
-  allArticles, CATEGORIES, filterBySlug,
-  POPULAR_TAGS, CATEGORY_DESCRIPTIONS,
-} from '../data/articles';
-import { popularArticles, navLinks } from '../data/mockData';
+import { CATEGORIES, POPULAR_TAGS, CATEGORY_DESCRIPTIONS } from '../data/articles';
+import { navLinks } from '../data/mockData';
+import { getPublishedArticles, getCategoryIdBySlug, getArticleCount, getMostViewedArticles } from '../lib/supabase';
+import { normalizeArticles } from '../lib/normalize';
+
+const PAGE_SIZE = 9;
 
 /* ─── Featured card (hero-size) ─── */
 function FeaturedCard({ article, isMobile }) {
   const [hov, setHov] = useState(false);
   return (
-    <Link to={`/article/${article.uid}`} style={{ textDecoration: 'none', display: 'block' }}>
+    <Link to={`/article/${article.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
       <article
         onMouseEnter={() => setHov(true)}
         onMouseLeave={() => setHov(false)}
@@ -117,9 +118,9 @@ function FeaturedCard({ article, isMobile }) {
 function ArticleCard({ article, hovered, onHover }) {
   return (
     <Link
-      to={`/article/${article.uid}`}
+      to={`/article/${article.slug}`}
       style={{ textDecoration: 'none', display: 'flex' }}
-      onMouseEnter={() => onHover(article.uid)}
+      onMouseEnter={() => onHover(article.slug)}
       onMouseLeave={() => onHover(null)}
     >
       <article style={{
@@ -178,21 +179,27 @@ function ArticleCard({ article, hovered, onHover }) {
 /* ─── Sidebar: Popular ─── */
 function PopularSidebar() {
   const [hovId, setHovId] = useState(null);
+  const [popular, setPopular] = useState([]);
+
+  useEffect(() => {
+    getMostViewedArticles(5).then(({ data }) => setPopular(normalizeArticles(data)));
+  }, []);
+
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: '24px', marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
       <SidebarHeading accent="var(--brand)">Popular This Week</SidebarHeading>
-      {popularArticles.map((a, i) => (
-        <div
+      {popular.map((a, i) => (
+        <Link
           key={a.id}
+          to={`/article/${a.slug}`}
           onMouseEnter={() => setHovId(a.id)}
           onMouseLeave={() => setHovId(null)}
           style={{
             display: 'flex', gap: 14, alignItems: 'flex-start',
-            marginBottom: 16, paddingBottom: 16,
-            borderBottom: i < popularArticles.length - 1 ? '1px solid var(--border)' : 'none',
+            marginBottom: 16, paddingBottom: 16, textDecoration: 'none',
+            borderBottom: i < popular.length - 1 ? '1px solid var(--border)' : 'none',
           }}
         >
-          {/* Rank badge */}
           <div style={{
             minWidth: 28, height: 28, borderRadius: '50%', flexShrink: 0,
             background: i === 0 ? 'var(--brand)' : 'var(--sand-mid)',
@@ -214,10 +221,10 @@ function PopularSidebar() {
               {a.title}
             </p>
             <span style={{ fontSize: 11, color: 'var(--text-light)' }}>
-              {a.views} views · {a.date}
+              {a.views} · {a.date}
             </span>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
@@ -499,12 +506,33 @@ export default function CategoryPage() {
   const { slug } = useParams();
   const isMobile = useIsMobile();
   const activeSlug = slug || 'all';
-  const [visibleCount, setVisibleCount] = useState(10);
-  const [hoveredId, setHoveredId] = useState(null);
+  const [articles, setArticles]     = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading]       = useState(true);
+  const [hoveredId, setHoveredId]   = useState(null);
 
   useEffect(() => {
-    setVisibleCount(10);
-  }, [slug]);
+    setArticles([]);
+    setLoading(true);
+
+    async function load() {
+      const catId = activeSlug !== 'all' ? await getCategoryIdBySlug(activeSlug) : null;
+      const [count, { data }] = await Promise.all([
+        getArticleCount(catId),
+        getPublishedArticles({ categoryId: catId, limit: PAGE_SIZE }),
+      ]);
+      setTotalCount(count);
+      setArticles(normalizeArticles(data));
+      setLoading(false);
+    }
+    load();
+  }, [activeSlug]);
+
+  const loadMore = async () => {
+    const catId = activeSlug !== 'all' ? await getCategoryIdBySlug(activeSlug) : null;
+    const { data } = await getPublishedArticles({ categoryId: catId, limit: PAGE_SIZE, offset: articles.length });
+    setArticles(prev => [...prev, ...normalizeArticles(data)]);
+  };
 
   /* Update document title + meta */
   useEffect(() => {
@@ -516,9 +544,8 @@ export default function CategoryPage() {
     metaDesc.content = CATEGORY_DESCRIPTIONS[activeSlug] || CATEGORY_DESCRIPTIONS.all;
   }, [activeSlug]);
 
-  const articles      = filterBySlug(activeSlug);
   const featured      = articles[0];
-  const rest          = articles.slice(1, visibleCount);
+  const rest          = articles.slice(1);
   const activeNavLink = navLinks.find(l => l.slug === activeSlug);
   const activeCat     = CATEGORIES.find(c => c.slug === activeSlug)
     || (activeNavLink ? { label: activeNavLink.label, slug: activeSlug, color: '#e43d30' } : CATEGORIES[0]);
@@ -566,7 +593,7 @@ export default function CategoryPage() {
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(228,61,48,0.12)', border: '1px solid rgba(228,61,48,0.22)', borderRadius: 4, padding: '4px 13px', marginBottom: 22 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--brand)', display: 'inline-block' }} />
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--brand)' }}>
-              {articles.length} Articles
+              {totalCount > 0 ? `${totalCount.toLocaleString()} Articles` : loading ? 'Loading…' : '0 Articles'}
             </span>
           </div>
 
@@ -619,16 +646,16 @@ export default function CategoryPage() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 36 }}>
               {rest.map(a => (
                 <ArticleCard
-                  key={a.uid}
+                  key={a.slug}
                   article={a}
-                  hovered={hoveredId === a.uid}
+                  hovered={hoveredId === a.slug}
                   onHover={setHoveredId}
                 />
               ))}
             </div>
           )}
 
-          {articles.length === 0 && (
+          {!loading && articles.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-mid)', fontFamily: 'var(--font-body)' }}>
               <div style={{ fontSize: 40, marginBottom: 16 }}>🔍</div>
               <h3 style={{ fontWeight: 700, fontSize: 18, color: 'var(--text-dark)', marginBottom: 8 }}>No articles found</h3>
@@ -636,11 +663,17 @@ export default function CategoryPage() {
             </div>
           )}
 
+          {loading && articles.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
+              Loading articles…
+            </div>
+          )}
+
           {/* Load More */}
-          {visibleCount < articles.length && (
+          {articles.length < totalCount && !loading && (
             <div style={{ textAlign: 'center', marginTop: 12 }}>
               <button
-                onClick={() => setVisibleCount(v => v + 9)}
+                onClick={loadMore}
                 style={{
                   padding: '13px 40px', background: 'var(--brand)', color: '#fff',
                   border: 'none', borderRadius: 5, fontFamily: 'var(--font-ui)',
@@ -654,7 +687,7 @@ export default function CategoryPage() {
                 Load More Articles
               </button>
               <p style={{ marginTop: 12, fontSize: 12, color: 'var(--text-light)' }}>
-                Showing {Math.min(visibleCount, articles.length)} of {articles.length} articles
+                Showing {articles.length} of {totalCount.toLocaleString()} articles
               </p>
             </div>
           )}

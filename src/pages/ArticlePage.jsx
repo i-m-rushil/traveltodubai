@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { getArticle, getRelatedArticles } from '../data/articles';
+import { getArticleBySlug, getRelatedArticles } from '../lib/supabase';
+import { normalizeArticle, normalizeArticles } from '../lib/normalize';
 
 /* ─── Reading progress bar ─── */
 function ReadingProgressBar() {
@@ -88,84 +89,20 @@ function InlineAd({ src, headline, sub, cta = 'Learn More →' }) {
   );
 }
 
-/* ─── Article body (rich mock content) ─── */
+/* ─── Article body ─── */
 function ArticleBody({ article }) {
-  const p  = { marginBottom: 24, fontFamily: 'var(--font-body)', fontSize: 17, lineHeight: 1.88, color: 'var(--text-dark)', fontWeight: 400 };
-  const h2 = { fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: 24, color: 'var(--text-dark)', lineHeight: 1.3, margin: '52px 0 20px', paddingLeft: 18, borderLeft: '3px solid var(--brand)', letterSpacing: '-0.01em' };
-  const h3 = { fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: 19, color: 'var(--text-dark)', lineHeight: 1.4, margin: '40px 0 14px' };
-  const bq = { margin: '40px 0', padding: '22px 28px', background: 'var(--sand-mid)', borderLeft: '4px solid var(--gold)', borderRadius: '0 8px 8px 0', fontStyle: 'italic', fontSize: 19, fontWeight: 300, color: 'var(--text-mid)', lineHeight: 1.7, fontFamily: 'var(--font-body)' };
-  const li = { display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 12, fontSize: 16, lineHeight: 1.7, color: 'var(--text-dark)', fontFamily: 'var(--font-body)' };
-  const bullet = { color: 'var(--brand)', fontWeight: 900, marginTop: 3, flexShrink: 0, fontSize: 14 };
-
+  if (!article.content) {
+    return (
+      <p style={{ fontFamily: 'var(--font-body)', fontSize: 17, color: 'var(--text-mid)', lineHeight: 1.88 }}>
+        Article content is not available.
+      </p>
+    );
+  }
   return (
-    <div>
-      <p style={p}>
-        Dubai is unlike any destination on earth. In the span of a single generation, this city transformed from a modest pearl-diving and trading outpost into one of the world's most visited, most photographed, and most aspirational urban destinations. Yet for all its spectacle, what surprises most first-time visitors isn't the height of the towers or the size of the malls — it's how genuinely complex, layered, and rewarding the city turns out to be.
-      </p>
-      <p style={p}>
-        Whether you're arriving for a long weekend stopover or a full two-week immersion, understanding how to navigate Dubai — its geography, culture, transport, neighbourhoods, and rhythms — will determine whether you leave feeling like a tourist who ticked boxes or a traveller who actually experienced something real.
-      </p>
-
-      <h2 style={h2}>Understanding the City's Layout</h2>
-      <p style={p}>
-        Dubai stretches along a narrow coastal strip for approximately 35 kilometres, and this linear geography is crucial to understanding the city. Most visitors base themselves in one of three main zones: Downtown Dubai (home to the Burj Khalifa, Dubai Mall, and the Opera District), the Marina and JBR area (the most cosmopolitan, beach-fronting stretch), and Deira and Bur Dubai (the older, more authentic commercial heart). Each has a completely different character, price point, and appeal.
-      </p>
-      <p style={p}>
-        A common mistake is underestimating distances. Dubai feels compact on a map but spreads across a vast desert plateau. The drive from Deira to the Marina — two of the most popular tourist areas — can take anywhere from 25 minutes to over an hour depending on traffic. Plan accordingly and build generous travel time into your day.
-      </p>
-
-      <blockquote style={bq}>
-        "Dubai doesn't reveal itself on the first day — or even the first week. The city rewards patience, wandering, and a genuine willingness to step beyond the postcard shots."
-      </blockquote>
-
-      <InlineAd
-        src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=900&h=200&q=85&fit=crop"
-        headline="Stay in the World's Most Iconic Hotels"
-        sub="Curated luxury stays in Dubai — from AED 599 per night with breakfast included"
-        cta="Browse Hotels →"
-      />
-
-      <h2 style={h2}>When to Visit — and When to Stay Away</h2>
-      <p style={p}>
-        Dubai has two drastically different seasons. From November through March, the city is glorious: warm days between 22°C and 30°C, cool evenings, near-zero humidity, and a full calendar of events. This is when hotels fill quickly, prices peak, and every beach and rooftop terrace buzzes nightly. Book everything months in advance for this window.
-      </p>
-      <p style={p}>
-        From June through September, the picture reverses entirely. Temperatures regularly hit 42–48°C with punishing humidity. Almost all activity retreats indoors. But this creates a genuine opportunity: hotel prices drop by 40–60%, the malls and indoor attractions are quiet, and you experience a different, more local Dubai. The city's annual indoor festival runs through these months and offers significant discounts at major attractions.
-      </p>
-
-      <h3 style={h3}>Key Events and Dates to Know</h3>
-      <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px' }}>
-        {[
-          'Dubai Shopping Festival — January to February',
-          'Dubai Food Festival — February to March',
-          'Dubai World Cup (horse racing) — late March',
-          'Ramadan — dates vary annually by the lunar calendar',
-          'UAE National Day — 2nd and 3rd December',
-          'New Year\'s Eve Fireworks at Burj Khalifa — 31st December',
-        ].map(item => (
-          <li key={item} style={li}>
-            <span style={bullet}>—</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-
-      <h2 style={h2}>Getting Around Like a Local</h2>
-      <p style={p}>
-        Dubai's metro system is the backbone of the city for visitors. The Red and Green lines connect most major tourist zones, are meticulously air-conditioned, and cost a fraction of what a taxi charges. A Nol card — the metro's reloadable travel card — works across metro, tram, buses, and even water taxis. Buy one at any metro station for AED 25 (which includes AED 19 in loaded credit).
-      </p>
-      <p style={p}>
-        For areas the metro doesn't reach — and there are many — Careem and Uber are inexpensive and reliable. Traditional yellow taxis are metered and honest. Avoid renting a car unless you specifically plan to explore beyond the city limits, where personal transport genuinely opens up the desert roads, mountain routes, and border towns that make the UAE so much more than Dubai alone.
-      </p>
-
-      <h2 style={h2}>The Experiences That Define Dubai</h2>
-      <p style={p}>
-        Every visitor carries a list: Burj Khalifa at sunset, the Dubai Mall aquarium, a desert safari, an abra ride across the creek past the gold and spice souks. These are popular for good reason — do them all. But the experiences that actually stay with you tend to be simpler and less photographed: a 7am walk along the empty JBR beach before the crowds arrive, a proper Emirati breakfast of balaleet and khameer bread in a Deira café, the extraordinary silence of the desert conservation reserve at dusk as the last light turns the dunes copper.
-      </p>
-      <p style={p}>
-        The most important thing you can bring to Dubai is genuine curiosity — not just for the record-breaking and the spectacular, but for the extraordinary human city underneath it. The Filipino service workers, Indian construction crews, Emirati families, British expats, and Egyptian restaurateurs who together make up 90% of the population all have remarkable stories about this unlikely, improbable place. Ask them. Listen carefully. That is when Dubai truly opens up.
-      </p>
-    </div>
+    <div
+      className="article-content"
+      dangerouslySetInnerHTML={{ __html: article.content }}
+    />
   );
 }
 
@@ -174,7 +111,7 @@ function RelatedCard({ article }) {
   const [hov, setHov] = useState(false);
   return (
     <Link
-      to={`/article/${article.uid}`}
+      to={`/article/${article.slug}`}
       style={{ textDecoration: 'none', display: 'block' }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
@@ -209,14 +146,35 @@ function RelatedCard({ article }) {
 
 /* ─── Main export ─── */
 export default function ArticlePage() {
-  const { id }    = useParams();
+  const { slug }  = useParams();
   const isMobile  = useIsMobile();
-  const article   = getArticle(id);
-  const related   = article ? getRelatedArticles(article) : [];
-  const [copied, setCopied]  = useState(false);
-  const bodyRef   = useRef(null);
+  const [article, setArticle]   = useState(null);
+  const [related, setRelated]   = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [copied, setCopied]     = useState(false);
+  const bodyRef = useRef(null);
 
-  /* Scroll to top + SEO on mount */
+  useEffect(() => {
+    setArticle(null);
+    setRelated([]);
+    setLoading(true);
+
+    async function load() {
+      const { data, error } = await getArticleBySlug(slug);
+      if (error || !data) { setLoading(false); return; }
+      const norm = normalizeArticle(data);
+      setArticle(norm);
+      setLoading(false);
+
+      if (data.category_id) {
+        const { data: rel } = await getRelatedArticles(data.category_id, data.id, 3);
+        setRelated(normalizeArticles(rel));
+      }
+    }
+    load();
+  }, [slug]);
+
+  /* Scroll to top + SEO when article loads */
   useEffect(() => {
     window.scrollTo(0, 0);
     if (!article) return;
@@ -271,6 +229,15 @@ export default function ArticlePage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  /* Loading state */
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '100px 20px', background: 'var(--sand)', minHeight: '60vh', color: 'var(--text-light)', fontFamily: 'var(--font-body)' }}>
+        Loading article…
+      </div>
+    );
+  }
 
   /* 404 state */
   if (!article) {
@@ -404,8 +371,11 @@ export default function ArticlePage() {
                   background: 'var(--midnight)', color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'var(--font-headline)', fontWeight: 900, fontSize: 18,
+                  overflow: 'hidden',
                 }}>
-                  {initial}
+                  {article.authorAvatar
+                    ? <img src={article.authorAvatar} alt={article.author} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : initial}
                 </div>
                 <div>
                   <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 14, color: 'var(--text-dark)' }}>
@@ -488,8 +458,11 @@ export default function ArticlePage() {
                 background: 'var(--brand)', color: '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: 'var(--font-headline)', fontWeight: 900, fontSize: 26,
+                overflow: 'hidden',
               }}>
-                {initial}
+                {article.authorAvatar
+                  ? <img src={article.authorAvatar} alt={article.author} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : initial}
               </div>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--brand)', marginBottom: 6 }}>
@@ -518,7 +491,7 @@ export default function ArticlePage() {
               </h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 20 }}>
-              {related.map(a => <RelatedCard key={a.uid} article={a} />)}
+              {related.map(a => <RelatedCard key={a.slug} article={a} />)}
             </div>
           </div>
         </div>

@@ -1,50 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
-
-const ARTICLES = [
-  {
-    id: 1,
-    category: 'Destination',
-    categoryColor: '#C9A050',
-    categorySlug: 'travel',
-    date: 'June 5, 2026',
-    title: 'Inside the World\'s Most Ambitious City: How Dubai Keeps Reinventing Itself Every Decade',
-    excerpt: 'From artificial islands to vertical farms, Dubai\'s obsession with the impossible has turned a desert fishing village into the planet\'s most audacious urban experiment.',
-    image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=1200&q=90&fit=crop',
-  },
-  {
-    id: 2,
-    category: 'Adventure',
-    categoryColor: '#e43d30',
-    categorySlug: 'travel',
-    date: 'June 4, 2026',
-    title: 'Hot Air Balloon at Dawn: Floating Over the Arabian Desert in Total Silence',
-    excerpt: 'A meditative hour above the dunes as the sun splits the horizon — nothing in Dubai prepares you for this.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=900&q=85&fit=crop',
-  },
-  {
-    id: 3,
-    category: 'Culture',
-    categoryColor: '#7c3aed',
-    categorySlug: 'culture',
-    date: 'June 3, 2026',
-    title: 'Old Dubai\'s Hidden Lanes: A Walking Tour Through 200 Years of Trade History',
-    image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=700&q=80&fit=crop',
-  },
-  {
-    id: 4,
-    category: 'Luxury',
-    categoryColor: '#059669',
-    categorySlug: 'lifestyle',
-    date: 'June 2, 2026',
-    title: 'The World\'s Greatest Hotel Views — Dubai Holds Three of Them',
-    image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=700&q=80&fit=crop',
-  },
-];
+import { getPublishedArticles } from '../lib/supabase';
+import { normalizeArticles } from '../lib/normalize';
 
 export default function FeaturedGridSection() {
   const isMobile = useIsMobile();
+  const [articles, setArticles] = useState([]);
+
+  useEffect(() => {
+    getPublishedArticles({ limit: 4 }).then(({ data }) => {
+      setArticles(normalizeArticles(data));
+    });
+  }, []);
+
+  if (articles.length < 4) {
+    return (
+      <section style={{ background: 'var(--sand)', padding: isMobile ? '40px 0' : '64px 0', minHeight: 200 }} />
+    );
+  }
+
   return (
     <section style={{ background: 'var(--sand)', padding: isMobile ? '40px 0' : '64px 0' }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 16px' : '0 24px' }}>
@@ -95,17 +70,17 @@ export default function FeaturedGridSection() {
         }}>
           {/* Left — big featured card */}
           <div style={{ height: isMobile ? '300px' : '100%' }}>
-            <BigCard article={ARTICLES[0]} />
+            <BigCard article={articles[0]} />
           </div>
 
           {/* Right — 1 top + 2 bottom */}
           <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: '4px' }}>
             <div style={{ height: isMobile ? '220px' : '100%' }}>
-              <SmallCard article={ARTICLES[1]} wide />
+              <SmallCard article={articles[1]} wide />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', height: isMobile ? '180px' : '100%' }}>
-              <SmallCard article={ARTICLES[2]} />
-              <SmallCard article={ARTICLES[3]} />
+              <SmallCard article={articles[2]} />
+              <SmallCard article={articles[3]} />
             </div>
           </div>
         </div>
@@ -123,7 +98,7 @@ function BigCard({ article }) {
     <article
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/category/${article.categorySlug}`)}
+      onClick={() => navigate(`/article/${article.slug}`)}
       style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', height: '100%' }}
     >
       {/* Image */}
@@ -223,7 +198,7 @@ function SmallCard({ article, wide }) {
     <article
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/category/${article.categorySlug}`)}
+      onClick={() => navigate(`/article/${article.slug}`)}
       style={{ position: 'relative', overflow: 'hidden', cursor: 'pointer', height: '100%' }}
     >
       {/* Image */}
