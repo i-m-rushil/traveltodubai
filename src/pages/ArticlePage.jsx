@@ -174,6 +174,19 @@ export default function ArticlePage() {
     load();
   }, [slug]);
 
+  /* Load Instagram embed script when article contains Instagram embeds */
+  useEffect(() => {
+    if (!article?.content?.includes('instagram-media')) return;
+    if (window.instgrm) {
+      window.instgrm.Embeds.process();
+    } else {
+      const s = document.createElement('script');
+      s.src = 'https://www.instagram.com/embed.js';
+      s.async = true;
+      document.body.appendChild(s);
+    }
+  }, [article]);
+
   /* Scroll to top + SEO when article loads */
   useEffect(() => {
     window.scrollTo(0, 0);

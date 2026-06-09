@@ -73,3 +73,15 @@ main {
   padding: 10px 14px; font-size: 14px; text-align: left;
 }
 .article-content th { background: var(--sand-mid); font-weight: 700; }
+
+/* Instagram embeds */
+.article-content .instagram-media {
+  margin: 28px auto !important;
+  display: block;
+}
+.article-content iframe[src*="instagram"] {
+  max-width: 100%;
+  margin: 28px auto;
+  display: block;
+  border-radius: 8px;
+}
