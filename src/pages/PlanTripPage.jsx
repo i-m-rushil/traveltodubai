@@ -192,7 +192,12 @@ const POPULAR_ORIGINS = [
   { name:'Sydney', code:'SYD', country_name:'Australia' },
 ];
 
-function AirportAutocomplete({ value, onSelect, placeholder, compact }) {
+const POPULAR_DESTINATIONS = [
+  { name:'Dubai International', code:'DXB', country_name:'United Arab Emirates' },
+  { name:'Dubai World Central', code:'DWC', country_name:'United Arab Emirates' },
+];
+
+function AirportAutocomplete({ value, onSelect, placeholder, compact, defaultSuggestions }) {
   const [q, setQ] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -232,12 +237,13 @@ function AirportAutocomplete({ value, onSelect, placeholder, compact }) {
     onSelect(label);
   }
 
-  const items = q.length >= 2 ? suggestions : POPULAR_ORIGINS;
+  const popList = defaultSuggestions || POPULAR_ORIGINS;
+  const items = q.length >= 2 ? suggestions : popList;
   const isPopular = q.length < 2;
 
   const List = (
     <div style={{ maxHeight:'260px', overflowY:'auto' }}>
-      {isPopular && <div style={{ fontWeight:700, fontSize:'12px', color:'#999', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'10px' }}>Popular origins</div>}
+      {isPopular && <div style={{ fontWeight:700, fontSize:'12px', color:'#999', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'10px' }}>{defaultSuggestions ? 'Suggested' : 'Popular origins'}</div>}
       {loading && <div style={{ fontSize:'13px', color:'#999', textAlign:'center', padding:'10px' }}>Searching...</div>}
       {!loading && items.map((item, i) => (
         <button key={i}
@@ -470,7 +476,7 @@ export default function PlanTripPage() {
 
   /* Flight form */
   const [from, setFrom]         = useState('');
-  const [to, setTo]             = useState('Dubai, UAE — DXB');
+  const [to, setTo]             = useState('');
   const [tripType, setTripType] = useState('round');
   const [depart, setDepart]     = useState('');
   const [ret, setRet]           = useState('');
@@ -646,20 +652,15 @@ export default function PlanTripPage() {
       {tab === 'flights' ? (
         <div className="pill-field" style={PF('to', false, false)} onClick={() => toggleSec('to')}>
           <div style={PLabel}>To</div>
-          <div style={{ ...PVal, color: to ? '#222' : '#aaa' }}>{to || 'Dubai, UAE'}</div>
+          <div style={{ ...PVal, color: to ? '#222' : '#aaa' }}>{to || 'Dubai, UAE — DXB'}</div>
           {activeSec === 'to' && (
             <DropShell onClose={closeSec}>
-              {['Dubai, UAE — DXB', 'Dubai World Central — DWC'].map(c => (
-                <button key={c} onClick={() => { setTo(c); closeSec(); }} style={{ display:'flex', alignItems:'center', gap:'10px', width:'100%', padding:'10px 8px', background:'transparent', border:'none', cursor:'pointer', borderRadius:'8px', transition:'background 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
-                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                  <div style={{ width:'32px', height:'32px', borderRadius:'50%', background:'#f5f5f5', display:'flex', alignItems:'center', justifyContent:'center' }}><Ico.Pin /></div>
-                  <div style={{ textAlign:'left' }}>
-                    <div style={{ fontSize:'13px', fontWeight:600, color:'#222' }}>{c.split('—')[0].trim()}</div>
-                    <div style={{ fontSize:'11px', color:'#717171' }}>{c.split('—')[1]?.trim()}</div>
-                  </div>
-                </button>
-              ))}
+              <AirportAutocomplete
+                value={to}
+                onSelect={val => { setTo(val); closeSec(); }}
+                placeholder="Search destination..."
+                defaultSuggestions={POPULAR_DESTINATIONS}
+              />
             </DropShell>
           )}
         </div>
@@ -764,7 +765,7 @@ export default function PlanTripPage() {
           </div>
           <div style={{ marginBottom:'10px' }}>
             <div style={{ fontSize:'11px', fontWeight:700, color:'#717171', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'5px' }}>To</div>
-            <input type="text" value={to} onChange={e => setTo(e.target.value)} placeholder="Dubai, UAE" style={{ width:'100%', height:'46px', border:'1.5px solid #e2e2e2', borderRadius:'10px', padding:'0 14px', fontSize:'14px', fontFamily:'inherit', color:'#222', background:'#fff', outline:'none', boxSizing:'border-box' }} onFocus={e => e.target.style.borderColor='#222'} onBlur={e => e.target.style.borderColor='#e2e2e2'} />
+            <AirportAutocomplete value={to} onSelect={setTo} placeholder="Dubai, UAE — DXB" compact defaultSuggestions={POPULAR_DESTINATIONS} />
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px' }}>
             <div>
