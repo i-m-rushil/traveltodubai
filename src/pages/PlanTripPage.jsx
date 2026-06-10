@@ -224,9 +224,9 @@ function DestCard({ d }) {
 }
 
 /* ─── Route Card ─── */
-function RouteCard({ r }) {
+function RouteCard({ r, onClick }) {
   return (
-    <div className="route-card" style={{ background:'#fff', borderRadius:'16px', border:'1px solid #ebebeb', padding:'20px', boxShadow:'0 1px 3px rgba(0,0,0,0.06)', cursor:'pointer', position:'relative', overflow:'hidden' }}>
+    <div className="route-card" onClick={() => onClick?.(r)} style={{ background:'#fff', borderRadius:'16px', border:'1px solid #ebebeb', padding:'20px', boxShadow:'0 1px 3px rgba(0,0,0,0.06)', cursor:'pointer', position:'relative', overflow:'hidden' }}>
       {/* country badge */}
       <div style={{ position:'absolute', top:'16px', right:'16px', background:'#f5f5f5', borderRadius:'6px', padding:'3px 8px', fontFamily:'var(--font-ui)', fontWeight:800, fontSize:'10px', color:'#717171', letterSpacing:'1px' }}>{r.cc}</div>
 
@@ -255,7 +255,7 @@ function RouteCard({ r }) {
           {r.nonstop && (
             <span style={{ background:'rgba(13,148,136,0.08)', color:'#0D9488', fontSize:'10px', fontWeight:700, padding:'3px 8px', borderRadius:'20px', border:'1px solid rgba(13,148,136,0.2)' }}>Nonstop</span>
           )}
-          <span style={{ background:'rgba(201,160,80,0.1)', color:'#A07830', fontSize:'10px', fontWeight:700, padding:'3px 8px', borderRadius:'20px', border:'1px solid rgba(201,160,80,0.25)' }}>Save {r.saves}</span>
+          {r.saves && <span style={{ background:'rgba(201,160,80,0.1)', color:'#A07830', fontSize:'10px', fontWeight:700, padding:'3px 8px', borderRadius:'20px', border:'1px solid rgba(201,160,80,0.25)' }}>Save {r.saves}</span>}
         </div>
       </div>
     </div>
@@ -263,7 +263,7 @@ function RouteCard({ r }) {
 }
 
 /* ─── Deal Card ─── */
-function DealCard({ deal }) {
+function DealCard({ deal, onClick }) {
   return (
     <div className="deal-card" style={{ background:'#fff', borderRadius:'18px', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.07), 0 6px 16px rgba(0,0,0,0.05)', cursor:'pointer' }}>
       <div style={{ height:'140px', background:'#111', padding:'18px', display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
@@ -271,7 +271,7 @@ function DealCard({ deal }) {
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.3) 100%)' }} />
         <div style={{ position:'relative', display:'flex', alignItems:'center', gap:'8px' }}>
           <span style={{ background: deal.bc, color:'#fff', fontWeight:800, fontSize:'9px', letterSpacing:'1.2px', textTransform:'uppercase', padding:'4px 10px', borderRadius:'4px' }}>{deal.badge}</span>
-          <CountdownTimer expires={deal.expires} />
+          {deal.expires != null && <CountdownTimer expires={deal.expires} />}
         </div>
         <div style={{ position:'relative', marginTop:'auto' }}>
           <div style={{ fontWeight:800, fontSize:'19px', color:'#fff', letterSpacing:'-0.02em', marginBottom:'2px' }}>{deal.title}</div>
@@ -286,15 +286,17 @@ function DealCard({ deal }) {
           <div>
             <div style={{ display:'flex', alignItems:'baseline', gap:'7px' }}>
               <span style={{ fontWeight:800, fontSize:'22px', color:'#b1132f', letterSpacing:'-0.02em' }}>{deal.price}</span>
-              <span style={{ fontSize:'13px', color:'#aaa', textDecoration:'line-through' }}>{deal.orig}</span>
+              {deal.orig && <span style={{ fontSize:'13px', color:'#aaa', textDecoration:'line-through' }}>{deal.orig}</span>}
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:'3px', marginTop:'3px' }}>
-              <Ico.Star /><span style={{ fontSize:'12px', fontWeight:700, color:'#222' }}>{deal.rating}</span>
-              <span style={{ fontSize:'12px', color:'#717171' }}>({deal.rev})</span>
-            </div>
+            {deal.rating != null && (
+              <div style={{ display:'flex', alignItems:'center', gap:'3px', marginTop:'3px' }}>
+                <Ico.Star /><span style={{ fontSize:'12px', fontWeight:700, color:'#222' }}>{deal.rating}</span>
+                {deal.rev && <span style={{ fontSize:'12px', color:'#717171' }}>({deal.rev})</span>}
+              </div>
+            )}
           </div>
         </div>
-        <button style={{ width:'100%', padding:'12px', background:'#b1132f', border:'none', color:'#fff', fontWeight:700, fontSize:'13px', borderRadius:'10px', cursor:'pointer', letterSpacing:'0.3px', transition:'background 0.18s' }}
+        <button onClick={(e) => { e.stopPropagation(); onClick?.(deal); }} style={{ width:'100%', padding:'12px', background:'#b1132f', border:'none', color:'#fff', fontWeight:700, fontSize:'13px', borderRadius:'10px', cursor:'pointer', letterSpacing:'0.3px', transition:'background 0.18s' }}
           onMouseEnter={e => e.currentTarget.style.background = '#8e0f26'}
           onMouseLeave={e => e.currentTarget.style.background = '#b1132f'}>
           Book Now
@@ -434,6 +436,55 @@ export default function PlanTripPage() {
     const isHotels = searchState.type === 'hotels';
     const url = isHotels ? hotellookFallbackLink(searchState.meta || {}) : aviasalesFallbackLink(searchState.meta || {});
     openAffiliate({ clickType: 'fallback_cta', itemLabel: isHotels ? 'hotellook fallback' : 'aviasales fallback', partnerUrl: url, searchParams: searchState.meta });
+  }
+
+  /* Live decorative sections (fall back to curated data while tables are empty) */
+  const [liveRoutes, setLiveRoutes] = useState(null);
+  const [liveHotels, setLiveHotels] = useState(null);
+  useEffect(() => {
+    getPopularRoutes().then(rows => { if (rows.length) setLiveRoutes(rows); }).catch(() => {});
+    getFeaturedHotels().then(rows => { if (rows.length) setLiveHotels(rows); }).catch(() => {});
+  }, []);
+
+  const GRADS = ['#0b1829', '#180b0b', '#0b1810', '#1a120a', '#0a1518', '#0f1408'];
+  const routeCards = liveRoutes
+    ? liveRoutes.slice(0, 6).map((r, i) => ({
+        from: r.origin_city, code: r.origin_code, cc: r.country_code,
+        airline: AIRLINE_NAMES[r.airline_iata] || r.airline_iata || '—',
+        duration: fmtDuration(r.duration_minutes), price: fmtPrice(r.price, r.currency),
+        nonstop: r.transfers === 0, grad: GRADS[i % GRADS.length], deepLink: r.deep_link, live: true,
+      }))
+    : ROUTES;
+
+  function handleRouteClick(r) {
+    if (r.live && r.deepLink) {
+      openAffiliate({ clickType: 'route_card', itemLabel: `${r.code}→DXB`, partnerUrl: r.deepLink, currency: null, searchParams: { origin: r.code } });
+    } else {
+      // curated fallback card: prefill the search form instead of inventing a link
+      setTab('flights');
+      setFrom(`${r.from} (${r.code})`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  const dealCards = liveHotels
+    ? liveHotels.slice(0, 3).map(h => ({
+        type: 'Hotel', title: h.name,
+        sub: `${h.stars ? `${h.stars}-star` : 'Top'} hotel · 3 nights from`,
+        price: fmtPrice(h.price_from, h.currency), orig: null,
+        badge: h.stars >= 5 ? 'Luxury' : 'Great Value', bc: h.stars >= 5 ? '#A07830' : '#0D9488',
+        tags: [h.stars ? `${h.stars}-star` : 'Hotel', h.location_label || 'Dubai'],
+        rating: h.rating, rev: null, img: h.photo_url, expires: null, deepLink: h.deep_link, live: true,
+      }))
+    : DEALS;
+
+  function handleDealClick(deal) {
+    if (deal.live && deal.deepLink) {
+      openAffiliate({ clickType: 'deal_card', itemLabel: deal.title, partnerUrl: deal.deepLink, searchParams: null });
+    } else {
+      setTab('hotels');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   /* Pill field base style */
@@ -823,7 +874,7 @@ export default function PlanTripPage() {
           <div style={{ maxWidth:'1080px', margin:'0 auto' }}>
             <SectionHead title="Top Flights to Dubai" sub="Competitive fares from cities around the world" action={{ label:'All routes', fn:()=>{} }} />
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:'14px' }}>
-              {ROUTES.map((r, i) => <RouteCard key={i} r={r} />)}
+              {routeCards.map((r, i) => <RouteCard key={r.code || i} r={r} onClick={handleRouteClick} />)}
             </div>
           </div>
         </div>
@@ -915,9 +966,9 @@ export default function PlanTripPage() {
         ═══════════════════════════════════════ */}
         <div style={{ background:'#f7f7f7', padding: isMobile ? '48px 16px 64px' : '64px 24px 80px' }}>
           <div style={{ maxWidth:'1080px', margin:'0 auto' }}>
-            <SectionHead title="Exclusive Dubai Deals" sub="Hand-picked offers — refreshed daily" action={{ label:'View all deals', fn:()=>{} }} />
+            <SectionHead title="Exclusive Dubai Deals" sub={liveHotels ? 'Live hotel prices — refreshed daily' : 'Hand-picked offers — refreshed daily'} action={{ label:'View all deals', fn:()=>{} }} />
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:'18px' }}>
-              {DEALS.map((deal, i) => <DealCard key={i} deal={deal} />)}
+              {dealCards.map((deal, i) => <DealCard key={deal.title || i} deal={deal} onClick={handleDealClick} />)}
             </div>
           </div>
         </div>
