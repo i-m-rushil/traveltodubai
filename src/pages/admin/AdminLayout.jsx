@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link, useLocation, Outlet } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { getSession, signOut } from '../../lib/supabase'
 
 // ─── Page title helper ─────────────────────────────────────────────────────
 function getPageTitle(pathname) {
@@ -405,10 +406,19 @@ export default function AdminLayout() {
       navigate('/login')
       return
     }
-    setAuth(stored)
+    // The dashboard talks to Supabase, so a live session is required too
+    getSession().then(session => {
+      if (!session) {
+        localStorage.removeItem('ttd_auth')
+        navigate('/login')
+        return
+      }
+      setAuth(stored)
+    })
   }, [navigate])
 
   function handleLogout() {
+    signOut()
     localStorage.removeItem('ttd_auth')
     navigate('/login')
   }

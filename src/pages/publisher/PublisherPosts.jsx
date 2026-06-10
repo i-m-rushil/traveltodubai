@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { mockPosts } from '../../data/dashboardData'
+import { getSession, dashListArticles, deleteArticle, logActivity } from '../../lib/supabase'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
@@ -170,7 +170,6 @@ function EmptyState() {
 // ─── Table View ────────────────────────────────────────────────────────────
 function TableView({ posts, confirmDelete, setConfirmDelete, onDelete, isMobile }) {
   const navigate = useNavigate()
-  const [hoveredRow, setHoveredRow] = useState(null)
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -242,9 +241,9 @@ function TableRow({ post, confirmDelete, setConfirmDelete, onDelete, isMobile, n
           onClick={() => navigate(`/dashboard/compose/${post.id}`)}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: isMobile ? 180 : 260 }}>
-            {post.image ? (
+            {post.featured_image ? (
               <img
-                src={post.image}
+                src={post.featured_image}
                 alt={post.title}
                 style={{ width: 60, height: 44, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
               />
@@ -315,7 +314,7 @@ function TableRow({ post, confirmDelete, setConfirmDelete, onDelete, isMobile, n
               borderRadius: 20,
             }}
           >
-            {post.category}
+            {post.category?.label || 'Uncategorised'}
           </span>
         </td>
 
@@ -341,7 +340,7 @@ function TableRow({ post, confirmDelete, setConfirmDelete, onDelete, isMobile, n
           }}
           onClick={() => navigate(`/dashboard/compose/${post.id}`)}
         >
-          {formatDate(post.date)}
+          {formatDate(post.published_at || post.created_at)}
         </td>
 
         {/* Views */}
@@ -510,9 +509,9 @@ function GridView({ posts, confirmDelete, setConfirmDelete, onDelete, isMobile }
         >
           {/* Image */}
           <div style={{ position: 'relative', height: 180, flexShrink: 0 }}>
-            {post.image ? (
+            {post.featured_image ? (
               <img
-                src={post.image}
+                src={post.featured_image}
                 alt={post.title}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
@@ -548,7 +547,7 @@ function GridView({ posts, confirmDelete, setConfirmDelete, onDelete, isMobile }
                 letterSpacing: '0.5px',
               }}
             >
-              {post.category}
+              {post.category?.label || 'Uncategorised'}
             </div>
           </div>
 
@@ -601,7 +600,7 @@ function GridView({ posts, confirmDelete, setConfirmDelete, onDelete, isMobile }
                 marginTop: 'auto',
               }}
             >
-              {formatDate(post.date)}
+              {formatDate(post.published_at || post.created_at)}
             </span>
 
             {/* Action buttons */}
@@ -722,12 +721,23 @@ export default function PublisherPosts() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
 
-  const [posts, setPosts] = useState(() => mockPosts.filter((p) => p.authorId === 1))
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [viewMode, setViewMode] = useState('table')
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [toast, setToast] = useState(null)
+
+  useEffect(() => {
+    (async () => {
+      const session = await getSession()
+      if (!session) { setLoading(false); return }
+      const { data } = await dashListArticles({ authorId: session.user.id, limit: 200 })
+      setPosts(data || [])
+      setLoading(false)
+    })()
+  }, [])
 
   const filtered = posts.filter((p) => {
     const matchSearch =
@@ -738,10 +748,22 @@ export default function PublisherPosts() {
     return matchSearch && matchStatus
   })
 
-  function handleDelete(id) {
-    setPosts((prev) => prev.filter((p) => p.id !== id))
+  async function handleDelete(id) {
+    const post = posts.find((p) => p.id === id)
+    const { error } = await deleteArticle(id)
     setConfirmDelete(null)
+    if (error) {
+      window.alert(`Could not delete post: ${error.message}`)
+      return
+    }
+    setPosts((prev) => prev.filter((p) => p.id !== id))
     setToast('Post deleted')
+    logActivity({
+      actionType: 'article_deleted',
+      entityType: 'article',
+      entityId: id,
+      message: `Deleted "${post?.title || 'a post'}"`,
+    })
   }
 
   const tabCounts = {
@@ -940,7 +962,11 @@ export default function PublisherPosts() {
         </div>
 
         {/* Content */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ padding: '60px 24px', textAlign: 'center', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 14 }}>
+            Loading your posts…
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState />
         ) : viewMode === 'table' ? (
           <TableView

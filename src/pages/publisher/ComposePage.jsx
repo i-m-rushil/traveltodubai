@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { mockPosts } from '../../data/dashboardData'
+import {
+  getAllCategories, getArticleForEdit, saveArticle, setArticleTags,
+  uploadImage, logActivity,
+} from '../../lib/supabase'
 
 function calcScore(p) {
   const titleLen = p.title.length
   const titleScore = titleLen >= 50 && titleLen <= 70 ? 95 : titleLen >= 35 ? 78 : titleLen >= 20 ? 62 : titleLen > 0 ? 45 : 0
-  const words = p.content.split(/\s+/).filter(Boolean).length
+  const words = p.content.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length
   const readability = words >= 800 ? 92 : words >= 500 ? 78 : words >= 300 ? 65 : words >= 100 ? 52 : words > 0 ? 38 : 0
   const seo = (p.metaDesc.length >= 140 ? 40 : p.metaDesc.length > 0 ? 25 : 0) + (p.featuredImage ? 30 : 0) + (p.tags ? 20 : 0) + (p.excerpt.length > 50 ? 10 : 0)
   const overall = Math.round((titleScore + readability + Math.min(seo, 100)) / 3)
@@ -49,61 +52,99 @@ function ScoreCircle({ score }) {
   )
 }
 
+// Renders the content exactly like the public ArticlePage, including Instagram embeds
+function LivePreview({ html }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!html.includes('instagram-media')) return
+    if (window.instgrm?.Embeds) {
+      window.instgrm.Embeds.process()
+    } else if (!document.querySelector('script[src*="instagram.com/embed.js"]')) {
+      const s = document.createElement('script')
+      s.src = 'https://www.instagram.com/embed.js'
+      s.async = true
+      document.body.appendChild(s)
+    }
+  }, [html])
+  return <div ref={ref} className="article-content" dangerouslySetInnerHTML={{ __html: html }} />
+}
+
 export default function ComposePage() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const isMobile = useIsMobile()
   const isEdit = !!id
 
   const auth = JSON.parse(localStorage.getItem('ttd_auth') || '{}')
 
   const [post, setPost] = useState({
-    title: '', slug: '', category: 'Travel Guides', tags: '', excerpt: '',
+    title: '', slug: '', categoryId: '', tags: '', excerpt: '',
     featuredImage: '', content: '', status: 'draft', metaDesc: ''
   })
+  const [articleId, setArticleId] = useState(id || null)
+  const [categories, setCategories] = useState([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [publishSuccess, setPublishSuccess] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const [aiScore, setAiScore] = useState({ title: 0, readability: 0, seo: 0, overall: 0 })
   const [activeTab, setActiveTab] = useState('write')
-  const [insertModal, setInsertModal] = useState(null)
+  const [insertModal, setInsertModal] = useState(null) // 'featured' | 'image' | 'instagram' | 'html'
   const [insertUrl, setInsertUrl] = useState('')
   const [insertCode, setInsertCode] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [scheduleOn, setScheduleOn] = useState(false)
-  const [hoveredBtn, setHoveredBtn] = useState(null)
 
   const autoSaveTimer = useRef(null)
   const textareaRef = useRef(null)
+  const slugTouched = useRef(isEdit)
+  const fileInputRef = useRef(null)
+  const publishedDate = useRef(null)
 
+  // Load categories
   useEffect(() => {
-    if (isEdit && mockPosts) {
-      const found = mockPosts.find(p => String(p.id) === String(id))
-      if (found) {
-        setPost(prev => ({
-          ...prev,
-          title: found.title || '',
-          slug: found.slug || slugify(found.title || ''),
-          category: found.category || 'Travel Guides',
-          tags: found.tags ? (Array.isArray(found.tags) ? found.tags.join(', ') : found.tags) : '',
-          excerpt: found.excerpt || '',
-          featuredImage: found.featuredImage || found.image || '',
-          content: found.content || '',
-          status: found.status || 'draft',
-          metaDesc: found.metaDesc || ''
-        }))
+    getAllCategories().then(({ data }) => {
+      if (data?.length) {
+        setCategories(data)
+        setPost(prev => prev.categoryId ? prev : { ...prev, categoryId: data[0].id })
       }
-    }
+    })
+  }, [])
+
+  // Load article when editing
+  useEffect(() => {
+    if (!isEdit) return
+    getArticleForEdit(id).then(({ data, error }) => {
+      if (error || !data) {
+        setErrorMsg('Could not load this post. It may have been deleted.')
+        return
+      }
+      publishedDate.current = data.published_at
+      setPost({
+        title: data.title || '',
+        slug: data.slug || '',
+        categoryId: data.category_id || '',
+        tags: (data.tags || []).map(t => t.tag?.name).filter(Boolean).join(', '),
+        excerpt: data.excerpt || '',
+        featuredImage: data.featured_image || '',
+        content: data.content || '',
+        status: data.status || 'draft',
+        metaDesc: data.meta_description || '',
+      })
+    })
   }, [id, isEdit])
 
   useEffect(() => {
     setAiScore(calcScore(post))
   }, [post])
 
+  // Autosave drafts 3s after the last change (never auto-pushes published edits live)
   useEffect(() => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     setSaved(false)
     autoSaveTimer.current = setTimeout(() => {
-      if (post.title || post.content) setSaved(true)
+      if (post.title.trim() && post.status === 'draft' && !saving) {
+        persist('draft', { silent: true })
+      }
     }, 3000)
     return () => clearTimeout(autoSaveTimer.current)
   }, [post])
@@ -113,16 +154,81 @@ export default function ComposePage() {
   }
 
   function updatePost(field, value) {
+    setErrorMsg('')
+    setPublishSuccess(false)
     setPost(prev => {
       const next = { ...prev, [field]: value }
-      if (field === 'title') next.slug = slugify(value)
+      if (field === 'title' && !slugTouched.current) next.slug = slugify(value)
+      if (field === 'slug') slugTouched.current = true
       return next
     })
   }
 
+  async function persist(status, { silent = false } = {}) {
+    if (!post.title.trim()) {
+      if (!silent) setErrorMsg('Please add a title before saving.')
+      return
+    }
+    if (!silent) { setSaving(true); setErrorMsg('') }
+    const { data, error } = await saveArticle({
+      id: articleId,
+      title: post.title,
+      slug: post.slug || slugify(post.title) || `post-${Math.random().toString(36).slice(2, 8)}`,
+      excerpt: post.excerpt,
+      content: post.content,
+      featuredImage: post.featuredImage,
+      categoryId: post.categoryId || null,
+      status,
+      metaDescription: post.metaDesc,
+      seoScore: aiScore.overall,
+    })
+    if (error) {
+      if (!silent) {
+        setSaving(false)
+        setErrorMsg(error.message || 'Saving failed — please try again.')
+      }
+      return
+    }
+    if (!articleId && data?.id) {
+      setArticleId(data.id)
+      window.history.replaceState(null, '', `/dashboard/compose/${data.id}`)
+    }
+    if (data?.slug && data.slug !== post.slug) {
+      setPost(prev => ({ ...prev, slug: data.slug }))
+    }
+    const targetId = articleId || data?.id
+    if (targetId) await setArticleTags(targetId, post.tags.split(','))
+    // Returning the same object when status is unchanged lets React bail out,
+    // so the silent autosave doesn't retrigger itself in a loop.
+    setPost(prev => (prev.status === status ? prev : { ...prev, status }))
+    setSaved(true)
+    if (!silent) {
+      setSaving(false)
+      if (status === 'published') {
+        setPublishSuccess(true)
+        logActivity({
+          actionType: 'article_published',
+          entityType: 'article',
+          entityId: targetId,
+          message: `${auth.name || 'A publisher'} published "${post.title}"`,
+        })
+      } else {
+        logActivity({
+          actionType: 'article_updated',
+          entityType: 'article',
+          entityId: targetId,
+          message: `${auth.name || 'A publisher'} saved a draft of "${post.title}"`,
+        })
+      }
+    }
+  }
+
   function insertAtCursor(prefix, suffix = '') {
     const ta = textareaRef.current
-    if (!ta) return
+    if (!ta) {
+      updatePost('content', post.content + prefix + suffix)
+      return
+    }
     const start = ta.selectionStart
     const end = ta.selectionEnd
     const sel = ta.value.slice(start, end)
@@ -134,37 +240,46 @@ export default function ComposePage() {
     }, 0)
   }
 
+  function instagramEmbedHtml(url) {
+    const clean = url.split('?')[0].replace(/\/?$/, '/')
+    return `\n<blockquote class="instagram-media" data-instgrm-permalink="${clean}" data-instgrm-version="14" style="margin: 28px auto; max-width: 540px; width: 100%;"><a href="${clean}" target="_blank" rel="noopener noreferrer">View this post on Instagram</a></blockquote>\n`
+  }
+
   function handleInsert() {
-    if (insertModal === 'image') {
-      updatePost('content', post.content + `\n![image](${insertUrl})\n`)
+    if (insertModal === 'featured') {
+      if (insertUrl) updatePost('featuredImage', insertUrl)
+    } else if (insertModal === 'image') {
+      if (insertUrl) insertAtCursor(`\n<img src="${insertUrl}" alt="" loading="lazy" />\n`)
+    } else if (insertModal === 'instagram') {
+      if (insertUrl.includes('instagram.com')) {
+        insertAtCursor(instagramEmbedHtml(insertUrl))
+      } else {
+        setErrorMsg('Please paste a valid Instagram post URL (instagram.com/p/… or /reel/…).')
+        return
+      }
     } else if (insertModal === 'html') {
-      updatePost('content', post.content + `\n${insertCode}\n`)
+      if (insertCode) insertAtCursor(`\n${insertCode}\n`)
     }
     setInsertModal(null)
     setInsertUrl('')
     setInsertCode('')
   }
 
-  function handleSaveDraft() {
-    setSaving(true)
-    updatePost('status', 'draft')
-    setTimeout(() => {
-      setSaving(false)
-      setSaved(true)
-    }, 1200)
+  async function handleFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const { data, error } = await uploadImage(file, insertModal === 'featured' ? 'featured' : 'posts')
+    setUploading(false)
+    if (error) {
+      setErrorMsg(error.message || 'Upload failed — please try again.')
+      return
+    }
+    setInsertUrl(data.url)
+    e.target.value = ''
   }
 
-  function handlePublish() {
-    setSaving(true)
-    updatePost('status', 'published')
-    setTimeout(() => {
-      setSaving(false)
-      setPublishSuccess(true)
-      setSaved(true)
-    }, 1200)
-  }
-
-  const wordCount = post.content.split(/\s+/).filter(Boolean).length
+  const wordCount = post.content.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length
   const titleLen = post.title.length
 
   function titleCountColor() {
@@ -191,7 +306,8 @@ export default function ComposePage() {
     { label: 'Content over 500 words', pass: wordCount >= 500 }
   ]
 
-  const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const displayDate = (publishedDate.current ? new Date(publishedDate.current) : new Date())
+    .toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
   const cardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', padding: '20px 24px', marginBottom: 20 }
   const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', fontFamily: 'var(--font-ui)', fontSize: 13, outline: 'none', boxSizing: 'border-box', color: 'var(--text-dark)' }
@@ -204,6 +320,13 @@ export default function ComposePage() {
     { key: 'seo', label: 'SEO' }
   ]
 
+  const modalTitles = {
+    featured: 'Set Featured Image',
+    image: 'Insert Image',
+    instagram: 'Embed Instagram Post',
+    html: 'Insert HTML Block',
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#f1f5f9', fontFamily: 'var(--font-ui)' }}>
       {/* INSERT MODAL */}
@@ -211,10 +334,19 @@ export default function ComposePage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 440, maxWidth: '90vw', boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
             <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 16, color: 'var(--text-dark)', marginBottom: 18 }}>
-              {insertModal === 'image' ? 'Insert Image' : 'Insert HTML Block'}
+              {modalTitles[insertModal]}
             </div>
-            {insertModal === 'image' ? (
+            {(insertModal === 'image' || insertModal === 'featured') && (
               <>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{ width: '100%', border: '2px dashed #e2e8f0', borderRadius: 10, padding: '18px 16px', textAlign: 'center', cursor: uploading ? 'wait' : 'pointer', background: '#f8fafc', marginBottom: 14, fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, color: 'var(--text-mid)' }}
+                >
+                  {uploading ? 'Uploading…' : '⬆ Upload from your device'}
+                </button>
+                <div style={{ textAlign: 'center', fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-light)', marginBottom: 14, letterSpacing: '0.5px' }}>— OR PASTE A URL —</div>
                 <label style={labelStyle}>Image URL</label>
                 <input
                   style={{ ...inputStyle, marginBottom: 14 }}
@@ -226,7 +358,22 @@ export default function ComposePage() {
                   <img src={insertUrl} alt="preview" onError={e => e.target.style.display = 'none'} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 14 }} />
                 )}
               </>
-            ) : (
+            )}
+            {insertModal === 'instagram' && (
+              <>
+                <label style={labelStyle}>Instagram Post URL</label>
+                <input
+                  style={{ ...inputStyle, marginBottom: 10 }}
+                  value={insertUrl}
+                  onChange={e => setInsertUrl(e.target.value)}
+                  placeholder="https://www.instagram.com/p/ABC123…"
+                />
+                <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-light)', lineHeight: 1.5, marginBottom: 14 }}>
+                  Paste the link of any Instagram post or reel. It will render as a live embed in the article — check the Preview tab to see it.
+                </div>
+              </>
+            )}
+            {insertModal === 'html' && (
               <>
                 <label style={labelStyle}>HTML Code</label>
                 <textarea
@@ -239,7 +386,7 @@ export default function ComposePage() {
             )}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => { setInsertModal(null); setInsertUrl(''); setInsertCode('') }} style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '9px 18px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleInsert} style={{ background: 'var(--brand)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Insert</button>
+              <button onClick={handleInsert} disabled={uploading} style={{ background: 'var(--brand)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: uploading ? 0.6 : 1 }}>Insert</button>
             </div>
           </div>
         </div>
@@ -248,7 +395,7 @@ export default function ComposePage() {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: isMobile ? '16px 14px' : '28px 32px' }}>
         {/* TOP BAR */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
-          <Link to="/publisher/posts" style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, color: 'var(--text-mid)', textDecoration: 'none' }}>
+          <Link to="/dashboard/posts" style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, color: 'var(--text-mid)', textDecoration: 'none' }}>
             <BackArrowIcon /> Back to Posts
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -290,17 +437,17 @@ export default function ComposePage() {
                   {post.featuredImage ? (
                     <>
                       <img src={post.featuredImage} alt="featured" style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 10, display: 'block', marginBottom: 12 }} />
-                      <button onClick={() => updatePost('featuredImage', '')} style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 16px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Change Image</button>
+                      <button onClick={() => setInsertModal('featured')} style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 16px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Change Image</button>
                     </>
                   ) : (
                     <div
                       style={{ border: '2px dashed #e2e8f0', borderRadius: 10, padding: 32, textAlign: 'center', cursor: 'pointer' }}
-                      onClick={() => setInsertModal('image')}
+                      onClick={() => setInsertModal('featured')}
                     >
                       <ImageInsertIcon size={40} color="#c5cdd8" />
                       <div style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-light)', marginTop: 10, marginBottom: 14 }}>No featured image set</div>
                       <button
-                        onClick={e => { e.stopPropagation(); setInsertModal('image') }}
+                        onClick={e => { e.stopPropagation(); setInsertModal('featured') }}
                         style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 18px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
                       >Add Featured Image</button>
                     </div>
@@ -323,20 +470,24 @@ export default function ComposePage() {
                 {/* Toolbar + Content */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                    <button title="Bold" style={toolbarBtnStyle} onClick={() => insertAtCursor('**', '**')}><BoldIcon /></button>
-                    <button title="Italic" style={toolbarBtnStyle} onClick={() => insertAtCursor('_', '_')}><ItalicIcon /></button>
-                    <button title="Heading 2" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('\n## ', '')}>H2</button>
-                    <button title="Heading 3" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('\n### ', '')}>H3</button>
-                    <button title="Quote" style={toolbarBtnStyle} onClick={() => insertAtCursor('\n> ', '')}><QuoteIcon /></button>
-                    <button title="Divider" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11 }} onClick={() => insertAtCursor('\n---\n', '')}>—</button>
+                    <button title="Bold" style={toolbarBtnStyle} onClick={() => insertAtCursor('<strong>', '</strong>')}><BoldIcon /></button>
+                    <button title="Italic" style={toolbarBtnStyle} onClick={() => insertAtCursor('<em>', '</em>')}><ItalicIcon /></button>
+                    <button title="Heading 2" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('\n<h2>', '</h2>\n')}>H2</button>
+                    <button title="Heading 3" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('\n<h3>', '</h3>\n')}>H3</button>
+                    <button title="Paragraph" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('\n<p>', '</p>\n')}>P</button>
+                    <button title="Bullet List" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('\n<ul>\n  <li>', '</li>\n</ul>\n')}>• List</button>
+                    <button title="Link" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700 }} onClick={() => insertAtCursor('<a href="https://">', '</a>')}>Link</button>
+                    <button title="Quote" style={toolbarBtnStyle} onClick={() => insertAtCursor('\n<blockquote>', '</blockquote>\n')}><QuoteIcon /></button>
+                    <button title="Divider" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px', fontSize: 11 }} onClick={() => insertAtCursor('\n<hr />\n', '')}>—</button>
                     <button title="Insert Image" style={toolbarBtnStyle} onClick={() => setInsertModal('image')}><ImageInsertIcon size={16} /></button>
+                    <button title="Embed Instagram Post" style={{ ...toolbarBtnStyle, width: 'auto', padding: '0 8px' }} onClick={() => setInsertModal('instagram')}><InstagramIcon /><span style={{ marginLeft: 5, fontSize: 11 }}>IG</span></button>
                     <button title="Insert HTML" style={toolbarBtnStyle} onClick={() => setInsertModal('html')}><CodeIcon /></button>
                   </div>
                   <textarea
                     ref={textareaRef}
                     value={post.content}
                     onChange={e => updatePost('content', e.target.value)}
-                    placeholder="Start writing your post content here..."
+                    placeholder="Start writing your post content here... Use the toolbar to add headings, images, Instagram embeds and custom HTML — then check the Preview tab."
                     style={{ width: '100%', minHeight: 400, fontFamily: 'monospace', fontSize: 15, lineHeight: 1.8, border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, resize: 'vertical', outline: 'none', color: 'var(--text-dark)', boxSizing: 'border-box' }}
                   />
                   <div style={{ marginTop: 8, fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-light)' }}>{wordCount} words</div>
@@ -373,12 +524,14 @@ export default function ComposePage() {
                   <img src={post.featuredImage} alt="featured" style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 10, marginBottom: 24, display: 'block' }} />
                 )}
                 {post.title ? (
-                  <h1 style={{ fontFamily: 'var(--font-ui)', fontSize: 30, fontWeight: 800, color: 'var(--text-dark)', marginBottom: 20, lineHeight: 1.3 }}>{post.title}</h1>
+                  <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: 30, fontWeight: 800, color: 'var(--text-dark)', marginBottom: 20, lineHeight: 1.3 }}>{post.title}</h1>
                 ) : (
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-light)', fontStyle: 'italic', marginBottom: 16 }}>No title yet</div>
                 )}
                 {post.content ? (
-                  <div style={{ maxWidth: 680, fontFamily: 'var(--font-ui)', fontSize: 16, lineHeight: 1.8, color: 'var(--text-dark)', whiteSpace: 'pre-wrap' }}>{post.content}</div>
+                  <div style={{ maxWidth: 680 }}>
+                    <LivePreview html={post.content} />
+                  </div>
                 ) : (
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-light)', fontStyle: 'italic' }}>Preview of your post content — start writing in the Write tab.</div>
                 )}
@@ -393,7 +546,7 @@ export default function ComposePage() {
 
                   <label style={labelStyle}>URL Slug</label>
                   <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-                    <span style={{ padding: '10px 12px', background: '#f8fafc', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-light)', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>/</span>
+                    <span style={{ padding: '10px 12px', background: '#f8fafc', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-light)', borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>/article/</span>
                     <input
                       value={post.slug}
                       onChange={e => updatePost('slug', e.target.value)}
@@ -412,12 +565,6 @@ export default function ComposePage() {
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: post.metaDesc.length > 160 ? 'var(--brand)' : 'var(--text-light)', textAlign: 'right', marginBottom: 16 }}>
                     {post.metaDesc.length} / 160
                   </div>
-
-                  <label style={labelStyle}>Focus Keyword</label>
-                  <input
-                    placeholder="e.g. dubai travel guide"
-                    style={{ ...inputStyle, marginBottom: 24 }}
-                  />
 
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 14 }}>SEO Checklist</div>
                   {seoChecks.map((c, i) => (
@@ -458,12 +605,12 @@ export default function ComposePage() {
 
                 <label style={labelStyle}>Category</label>
                 <select
-                  value={post.category}
-                  onChange={e => updatePost('category', e.target.value)}
+                  value={post.categoryId}
+                  onChange={e => updatePost('categoryId', e.target.value)}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', fontFamily: 'var(--font-ui)', fontSize: 13, outline: 'none', marginBottom: 16, color: 'var(--text-dark)', background: '#fff' }}
                 >
-                  {['Travel Guides', 'Attractions', 'Food & Dining', 'Lifestyle', 'Culture', 'Events'].map(c => (
-                    <option key={c} value={c}>{c}</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
                   ))}
                 </select>
 
@@ -473,16 +620,15 @@ export default function ComposePage() {
                     { val: 'draft', label: 'Draft', color: '#d97706', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.3)' },
                     { val: 'published', label: 'Published', color: '#059669', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.3)' }
                   ].map(s => (
-                    <button
+                    <div
                       key={s.val}
-                      onClick={() => updatePost('status', s.val)}
                       style={{
-                        flex: 1, fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600, borderRadius: 20, padding: '6px 0', cursor: 'pointer', transition: 'all 0.15s',
+                        flex: 1, fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600, borderRadius: 20, padding: '6px 0', textAlign: 'center', transition: 'all 0.15s',
                         background: post.status === s.val ? s.bg : '#f8fafc',
                         color: post.status === s.val ? s.color : 'var(--text-mid)',
                         border: `1px solid ${post.status === s.val ? s.border : '#e2e8f0'}`
                       }}
-                    >{s.label}</button>
+                    >{s.label}</div>
                   ))}
                 </div>
 
@@ -502,25 +648,41 @@ export default function ComposePage() {
                     <span>Author</span><span style={{ color: 'var(--text-mid)', fontWeight: 500 }}>{auth.name || 'Publisher'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--text-light)' }}>
-                    <span>Date</span><span style={{ color: 'var(--text-mid)', fontWeight: 500 }}>{today}</span>
+                    <span>Date</span><span style={{ color: 'var(--text-mid)', fontWeight: 500 }}>{displayDate}</span>
                   </div>
                 </div>
 
+                {errorMsg && (
+                  <div style={{ marginTop: 14, padding: '10px 12px', background: 'rgba(228,61,48,0.07)', border: '1px solid rgba(228,61,48,0.25)', borderRadius: 8, fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--brand)', lineHeight: 1.5 }}>
+                    {errorMsg}
+                  </div>
+                )}
+
                 <div style={{ marginTop: 20 }}>
                   <button
-                    onClick={handleSaveDraft}
+                    onClick={() => persist('draft')}
                     disabled={saving}
                     style={{ width: '100%', background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '9px 18px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 44, opacity: saving ? 0.7 : 1 }}
                   >
                     <SaveIcon />{saving ? 'Saving...' : saved && !publishSuccess ? 'Saved!' : 'Save Draft'}
                   </button>
                   <button
-                    onClick={handlePublish}
+                    onClick={() => persist('published')}
                     disabled={saving}
                     style={{ width: '100%', background: publishSuccess ? '#10b981' : 'var(--brand)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, minHeight: 44, transition: 'background 0.3s', opacity: saving ? 0.8 : 1 }}
                   >
                     {publishSuccess ? <><CheckIcon size={15} color="#fff" /> Published!</> : saving ? 'Publishing...' : <><SendIcon /> Publish Now</>}
                   </button>
+                  {publishSuccess && post.slug && (
+                    <a
+                      href={`/article/${post.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'block', textAlign: 'center', marginTop: 12, fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600, color: 'var(--brand)', textDecoration: 'none' }}
+                    >
+                      View live article →
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -572,6 +734,16 @@ function ImageInsertIcon({ size = 16, color = 'currentColor' }) {
   )
 }
 
+function InstagramIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+    </svg>
+  )
+}
+
 function CodeIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -613,32 +785,6 @@ function SendIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="22" y1="2" x2="11" y2="13"/>
       <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-    </svg>
-  )
-}
-
-function EyeIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-      <circle cx="12" cy="12" r="3"/>
-    </svg>
-  )
-}
-
-function SeoIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/>
-      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-  )
-}
-
-function HeadingIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 12h16M4 6h16M4 18h16"/>
     </svg>
   )
 }

@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { mockPublishers } from '../../data/dashboardData'
+import { useState, useEffect } from 'react'
+import { listPublishers, createPublisher, updatePublisher, deletePublisher, logActivity } from '../../lib/supabase'
 
 const AVATAR_COLORS = [
   '#e43d30', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
@@ -8,7 +7,14 @@ const AVATAR_COLORS = [
 ]
 
 function getAvatarColor(id) {
-  return AVATAR_COLORS[(id - 1) % AVATAR_COLORS.length]
+  const s = String(id || '')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
+}
+
+function getInitials(name) {
+  return (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
 function formatDate(dateStr) {
@@ -33,8 +39,15 @@ const emptyForm = {
   newPassword: '',
 }
 
+// DB stores active/suspended/pending; the UI shows Active/Inactive
+const toUiStatus = (s) => (s === 'active' ? 'active' : 'inactive')
+const toDbStatus = (s) => (s === 'active' ? 'active' : 'suspended')
+
 export default function AdminPublishers() {
-  const [publishers, setPublishers] = useState(mockPublishers)
+  const [publishers, setPublishers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [modalMode, setModalMode] = useState(null) // 'add' | 'edit' | null
   const [selectedPublisher, setSelectedPublisher] = useState(null)
@@ -43,7 +56,24 @@ export default function AdminPublishers() {
   const [formData, setFormData] = useState(emptyForm)
   const [hoveredRow, setHoveredRow] = useState(null)
   const [hoveredBtn, setHoveredBtn] = useState(null)
-  const nextId = useRef(mockPublishers.length + 1)
+
+  async function load() {
+    const { data } = await listPublishers()
+    setPublishers((data || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      avatar: getInitials(p.name),
+      avatarUrl: p.avatar_url,
+      role: p.publisher_profile?.job_title || 'Writer',
+      posts: p.publisher_profile?.post_count || 0,
+      status: toUiStatus(p.status),
+      joined: p.joined_at,
+    })))
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
 
   const filtered = publishers.filter(p => {
     const s = searchTerm.toLowerCase()
@@ -52,6 +82,7 @@ export default function AdminPublishers() {
 
   function openAdd() {
     setFormData(emptyForm)
+    setFormError('')
     setShowResetPassword(false)
     setSelectedPublisher(null)
     setModalMode('add')
@@ -66,6 +97,7 @@ export default function AdminPublishers() {
       password: '',
       newPassword: '',
     })
+    setFormError('')
     setShowResetPassword(false)
     setSelectedPublisher(pub)
     setModalMode('edit')
@@ -75,43 +107,74 @@ export default function AdminPublishers() {
     setModalMode(null)
     setSelectedPublisher(null)
     setShowResetPassword(false)
+    setFormError('')
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!formData.name.trim() || !formData.email.trim()) return
+    setSaving(true)
+    setFormError('')
     if (modalMode === 'add') {
-      const newPub = {
-        id: nextId.current++,
+      const { data, error } = await createPublisher({
         name: formData.name.trim(),
         email: formData.email.trim(),
-        avatar: formData.name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-        role: formData.role,
-        posts: 0,
-        status: formData.status,
-        joined: new Date().toISOString().slice(0, 10),
         password: formData.password || 'Publisher@123',
+        jobTitle: formData.role,
+        status: toDbStatus(formData.status),
+      })
+      if (error) {
+        setSaving(false)
+        setFormError(error.message || 'Could not create publisher.')
+        return
       }
-      setPublishers(prev => [...prev, newPub])
+      logActivity({
+        actionType: 'user_created',
+        entityType: 'profile',
+        entityId: data.id,
+        message: `Admin added publisher ${formData.name.trim()}`,
+      })
+      if (data.emailConfirmationPending) {
+        window.alert('Publisher created. They need to confirm their email address before they can sign in.')
+      }
     } else if (modalMode === 'edit' && selectedPublisher) {
-      setPublishers(prev => prev.map(p => {
-        if (p.id !== selectedPublisher.id) return p
-        return {
-          ...p,
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          avatar: formData.name.trim().split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-          role: formData.role,
-          status: formData.status,
-          password: showResetPassword && formData.newPassword ? formData.newPassword : p.password,
-        }
-      }))
+      const { error } = await updatePublisher(selectedPublisher.id, {
+        name: formData.name.trim(),
+        status: toDbStatus(formData.status),
+        jobTitle: formData.role,
+      })
+      if (error) {
+        setSaving(false)
+        setFormError(error.message || 'Could not save changes.')
+        return
+      }
+      logActivity({
+        actionType: 'user_updated',
+        entityType: 'profile',
+        entityId: selectedPublisher.id,
+        message: `Admin updated publisher ${formData.name.trim()}`,
+      })
     }
+    await load()
+    setSaving(false)
     closeModal()
   }
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
+    const pub = publishers.find(p => p.id === id)
+    const { error } = await deletePublisher(id)
+    if (error) {
+      window.alert(`Could not delete publisher: ${error.message}`)
+      setDeleteTarget(null)
+      return
+    }
     setPublishers(prev => prev.filter(p => p.id !== id))
     setDeleteTarget(null)
+    logActivity({
+      actionType: 'user_suspended',
+      entityType: 'profile',
+      entityId: id,
+      message: `Admin removed publisher ${pub?.name || ''}`,
+    })
   }
 
   function handleField(key, val) {
@@ -253,7 +316,13 @@ export default function AdminPublishers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 14 }}>
+                    Loading publishers…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-light)', fontFamily: 'var(--font-ui)', fontSize: 14 }}>
                     No publishers found.
@@ -269,15 +338,19 @@ export default function AdminPublishers() {
                   {/* Publisher column */}
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: getAvatarColor(pub.id),
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font-ui)',
-                        flexShrink: 0,
-                      }}>
-                        {pub.avatar}
-                      </div>
+                      {pub.avatarUrl ? (
+                        <img src={pub.avatarUrl} alt={pub.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{
+                          width: 36, height: 36, borderRadius: '50%',
+                          background: getAvatarColor(pub.id),
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#fff', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font-ui)',
+                          flexShrink: 0,
+                        }}>
+                          {pub.avatar}
+                        </div>
+                      )}
                       <div>
                         <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 14, color: 'var(--text-dark)' }}>
                           {pub.name}
@@ -450,8 +523,14 @@ export default function AdminPublishers() {
                   value={formData.email}
                   onChange={e => handleField('email', e.target.value)}
                   placeholder="publisher@traveltodubai.com"
-                  style={inputStyle}
+                  disabled={modalMode === 'edit'}
+                  style={{ ...inputStyle, background: modalMode === 'edit' ? '#f8fafc' : '#fff', cursor: modalMode === 'edit' ? 'not-allowed' : 'text' }}
                 />
+                {modalMode === 'edit' && (
+                  <div style={{ fontFamily: 'var(--font-ui)', fontSize: 11, color: 'var(--text-light)', marginTop: 5 }}>
+                    The email is the publisher's login and can't be changed here.
+                  </div>
+                )}
               </div>
 
               {/* Role */}
@@ -511,20 +590,28 @@ export default function AdminPublishers() {
                       <KeyIcon size={15} /> Reset Password
                     </button>
                   ) : (
-                    <div>
-                      <label style={labelStyle}>New Password</label>
-                      <input
-                        type="password"
-                        value={formData.newPassword}
-                        onChange={e => handleField('newPassword', e.target.value)}
-                        placeholder="Enter new password"
-                        style={inputStyle}
-                      />
+                    <div style={{
+                      background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+                      borderRadius: 8, padding: '10px 14px',
+                      fontFamily: 'var(--font-ui)', fontSize: 12, color: '#92600a', lineHeight: 1.5,
+                    }}>
+                      For security, password resets are handled by the publisher themselves — ask them
+                      to use "Forgot password" on the sign-in page, or reset it from the Supabase Auth dashboard.
                     </div>
                   )}
                 </div>
               )}
             </div>
+
+            {formError && (
+              <div style={{
+                marginTop: 16, padding: '10px 14px',
+                background: 'rgba(228,61,48,0.07)', border: '1px solid rgba(228,61,48,0.25)',
+                borderRadius: 8, fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--brand)',
+              }}>
+                {formError}
+              </div>
+            )}
 
             {/* Modal Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
@@ -541,14 +628,16 @@ export default function AdminPublishers() {
               </button>
               <button
                 onClick={handleSave}
+                disabled={saving}
                 style={{
                   background: 'var(--brand)', color: '#fff',
                   border: 'none', borderRadius: 8,
                   padding: '9px 18px', fontFamily: 'var(--font-ui)',
-                  fontWeight: 600, fontSize: 13, cursor: 'pointer', minHeight: 44,
+                  fontWeight: 600, fontSize: 13, cursor: saving ? 'wait' : 'pointer', minHeight: 44,
+                  opacity: saving ? 0.7 : 1,
                 }}
               >
-                {modalMode === 'add' ? 'Add Publisher' : 'Save Changes'}
+                {saving ? 'Saving…' : modalMode === 'add' ? 'Add Publisher' : 'Save Changes'}
               </button>
             </div>
           </div>

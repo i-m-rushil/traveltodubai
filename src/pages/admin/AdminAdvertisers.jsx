@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { mockAdvertisers } from '../../data/dashboardData'
+import { useState, useEffect } from 'react'
+import { listAdvertisers, saveAdvertiser, deleteAdvertiser, logActivity } from '../../lib/supabase'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 const PKG_COLOR = { Premium: '#C9A050', Standard: '#3b82f6', Basic: '#64748b' }
@@ -8,19 +8,55 @@ const BRAND_COLORS = [
   '#7B1FA2', '#455A64', '#C62828', '#00838F',
 ]
 
+// Must match the ad_format enum in the database
+export const AD_FORMATS = [
+  'Leaderboard Banner', 'Sidebar Rectangle', 'Article Inline',
+  'Mobile Banner', 'Sponsored Card', 'Newsletter Banner',
+]
+
 function makeAvatar(company) {
   return (company || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
+export function advertiserFromDb(a) {
+  return {
+    id: a.id,
+    company: a.company,
+    contact: a.contact_name,
+    email: a.email,
+    phone: a.phone || '',
+    website: a.website || '',
+    industry: a.industry || '',
+    package: a.package,
+    budget: a.monthly_budget || 0,
+    status: a.status,
+    color: a.brand_color || '#0066CC',
+    startDate: a.start_date || '',
+    notes: a.notes || '',
+    formats: (a.formats || []).map(f => f.format),
+    creatives: (a.creatives || []).map(c => c.image_url),
+    avatar: makeAvatar(a.company),
+  }
+}
+
 export default function AdminAdvertisers() {
   const isMobile = useIsMobile()
-  const [advertisers, setAdvertisers] = useState([...mockAdvertisers])
+  const [advertisers, setAdvertisers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [lightbox, setLightbox] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
+
+  async function load() {
+    const { data } = await listAdvertisers()
+    setAdvertisers((data || []).map(advertiserFromDb))
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
 
   const filtered = advertisers.filter(a => {
     const q = search.toLowerCase()
@@ -47,16 +83,53 @@ export default function AdminAdvertisers() {
     setFormOpen(true)
   }
 
-  function handleSave(data) {
-    if (editTarget) {
-      setAdvertisers(prev => prev.map(a =>
-        a.id === editTarget.id ? { ...a, ...data, avatar: makeAvatar(data.company) } : a
-      ))
-    } else {
-      const newId = advertisers.length ? Math.max(...advertisers.map(a => a.id)) + 1 : 1
-      setAdvertisers(prev => [...prev, { ...data, id: newId, avatar: makeAvatar(data.company) }])
+  async function handleSave(data) {
+    const { data: saved, error } = await saveAdvertiser({
+      id: editTarget?.id,
+      company: data.company.trim(),
+      contact_name: data.contact.trim(),
+      email: data.email.trim(),
+      phone: data.phone || null,
+      website: data.website || null,
+      industry: data.industry.trim(),
+      package: data.package,
+      monthly_budget: Number(data.budget) || 0,
+      status: data.status,
+      brand_color: data.color,
+      start_date: data.startDate || null,
+      notes: data.notes || null,
+      formats: data.formats,
+      creatives: data.creatives.map(url => ({ image_url: url, format: data.formats[0] || 'Leaderboard Banner' })),
+    })
+    if (error) {
+      window.alert(`Could not save advertiser: ${error.message}`)
+      return
     }
+    logActivity({
+      actionType: editTarget ? 'advertiser_updated' : 'advertiser_created',
+      entityType: 'advertiser',
+      entityId: saved?.id,
+      message: `Admin ${editTarget ? 'updated' : 'added'} advertiser ${data.company.trim()}`,
+    })
+    await load()
     setFormOpen(false)
+  }
+
+  async function handleDelete(adv) {
+    if (!window.confirm(`Delete advertiser "${adv.company}"? This cannot be undone.`)) return
+    const { error } = await deleteAdvertiser(adv.id)
+    if (error) {
+      window.alert(`Could not delete advertiser: ${error.message}`)
+      return
+    }
+    setSelected(null)
+    setAdvertisers(prev => prev.filter(a => a.id !== adv.id))
+    logActivity({
+      actionType: 'advertiser_updated',
+      entityType: 'advertiser',
+      entityId: adv.id,
+      message: `Admin removed advertiser ${adv.company}`,
+    })
   }
 
   return (
@@ -125,7 +198,7 @@ export default function AdminAdvertisers() {
         ))}
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
-            No advertisers match your filter.
+            {loading ? 'Loading advertisers…' : advertisers.length === 0 ? 'No advertisers yet — click "Add Advertiser" to create the first one.' : 'No advertisers match your filter.'}
           </div>
         )}
       </div>
@@ -138,6 +211,7 @@ export default function AdminAdvertisers() {
           onImageClick={url => setLightbox(url)}
           isAdmin
           onEdit={openEdit}
+          onDelete={handleDelete}
         />
       )}
 
@@ -189,17 +263,18 @@ function AdvertiserForm({ initial, onSave, onClose }) {
     creatives: [...(initial.creatives || [])],
   } : EMPTY)
 
-  const [newFormat, setNewFormat] = useState('')
   const [newCreative, setNewCreative] = useState('')
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })); setErrors(e => ({ ...e, [key]: '' })) }
 
-  function addFormat() {
-    const v = newFormat.trim()
-    if (v && !form.formats.includes(v)) { setForm(f => ({ ...f, formats: [...f.formats, v] })); setNewFormat('') }
+  function toggleFormat(f) {
+    setForm(prev => ({
+      ...prev,
+      formats: prev.formats.includes(f) ? prev.formats.filter(x => x !== f) : [...prev.formats, f],
+    }))
   }
-  function removeFormat(f) { setForm(prev => ({ ...prev, formats: prev.formats.filter(x => x !== f) })) }
 
   function addCreative() {
     const v = newCreative.trim()
@@ -218,10 +293,12 @@ function AdvertiserForm({ initial, onSave, onClose }) {
     return Object.keys(e).length === 0
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!validate()) return
-    onSave({ ...form, budget: Number(form.budget) || 0 })
+    setSubmitting(true)
+    await onSave({ ...form, budget: Number(form.budget) || 0 })
+    setSubmitting(false)
   }
 
   const inputStyle = (err) => ({
@@ -388,39 +465,22 @@ function AdvertiserForm({ initial, onSave, onClose }) {
 
           {/* Ad Formats */}
           <FormSection title="Ad Formats">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-              {form.formats.map(f => (
-                <span key={f} style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '4px 10px', borderRadius: 6,
-                  background: '#f1f5f9', border: '1px solid #e2e8f0',
-                  fontSize: 12, color: '#475569', fontWeight: 500,
-                }}>
-                  {f}
-                  <button type="button" onClick={() => removeFormat(f)} style={{
-                    background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8',
-                    display: 'flex', alignItems: 'center', padding: 0, lineHeight: 1,
-                  }}>×</button>
-                </span>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input value={newFormat} onChange={e => setNewFormat(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFormat() } }}
-                placeholder="e.g. Leaderboard Banner"
-                style={{ ...inputStyle(false), flex: 1 }}
-                onFocus={e => e.target.style.borderColor = 'var(--brand)'}
-                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-              />
-              <button type="button" onClick={addFormat} style={{
-                padding: '10px 16px', borderRadius: 8, background: '#f1f5f9',
-                border: '1px solid #e2e8f0', color: '#475569',
-                fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 12, cursor: 'pointer',
-                whiteSpace: 'nowrap', transition: 'all 0.15s',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9' }}
-              >+ Add</button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {AD_FORMATS.map(f => {
+                const on = form.formats.includes(f)
+                return (
+                  <button key={f} type="button" onClick={() => toggleFormat(f)} style={{
+                    padding: '6px 12px', borderRadius: 6,
+                    background: on ? 'rgba(228,61,48,0.08)' : '#f1f5f9',
+                    border: `1px solid ${on ? 'var(--brand)' : '#e2e8f0'}`,
+                    fontSize: 12, color: on ? 'var(--brand)' : '#475569',
+                    fontWeight: on ? 600 : 500,
+                    fontFamily: 'var(--font-ui)', cursor: 'pointer', transition: 'all 0.15s',
+                  }}>
+                    {on ? '✓ ' : ''}{f}
+                  </button>
+                )
+              })}
             </div>
           </FormSection>
 
@@ -489,16 +549,17 @@ function AdvertiserForm({ initial, onSave, onClose }) {
               onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
               onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
             >Cancel</button>
-            <button type="submit" style={{
+            <button type="submit" disabled={submitting} style={{
               flex: 2, padding: '11px', borderRadius: 8,
               background: 'var(--brand)', color: '#fff', border: 'none',
-              fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+              fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 13,
+              cursor: submitting ? 'wait' : 'pointer', opacity: submitting ? 0.7 : 1,
               boxShadow: '0 2px 8px rgba(228,61,48,0.3)', transition: 'all 0.15s',
             }}
               onMouseEnter={e => e.currentTarget.style.background = '#c0302a'}
               onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
             >
-              {initial ? 'Save Changes' : 'Add Advertiser'}
+              {submitting ? 'Saving…' : initial ? 'Save Changes' : 'Add Advertiser'}
             </button>
           </div>
         </form>
@@ -551,7 +612,7 @@ function AdvertiserCard({ adv, onClick }) {
 }
 
 // ─── Shared detail modal (used by publisher too) ──────────────────────────────
-export function AdvertiserModal({ adv, onClose, onImageClick, isAdmin, onEdit }) {
+export function AdvertiserModal({ adv, onClose, onImageClick, isAdmin, onEdit, onDelete }) {
   const isMobile = useIsMobile()
   return (
     <div onClick={e => e.target === e.currentTarget && onClose()} style={{
@@ -646,11 +707,13 @@ export function AdvertiserModal({ adv, onClose, onImageClick, isAdmin, onEdit })
                   onMouseEnter={e => e.currentTarget.style.background = '#c0302a'}
                   onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}
                 >Edit Advertiser</button>
-                <button style={{
-                  flex: 1, padding: '10px', borderRadius: 8,
-                  background: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0',
-                  fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 12, cursor: 'pointer',
-                }}>View Invoice</button>
+                {onDelete && (
+                  <button onClick={() => onDelete(adv)} style={{
+                    flex: 1, padding: '10px', borderRadius: 8,
+                    background: 'rgba(239,68,68,0.08)', color: '#dc2626', border: '1px solid rgba(239,68,68,0.2)',
+                    fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 12, cursor: 'pointer',
+                  }}>Delete</button>
+                )}
               </div>
             )}
           </div>

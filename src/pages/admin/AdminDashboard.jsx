@@ -1,7 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link, useLocation, Outlet, useParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { mockTrafficData, mockPosts, mockPublishers, mockActivity } from '../../data/dashboardData'
+import {
+  getDashboardStats, getDailyViews, getTotalArticleViews,
+  getActivityLog, dashArticleCounts,
+} from '../../lib/supabase'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function fmt(n) {
@@ -9,51 +11,27 @@ function fmt(n) {
 }
 
 function activityDotColor(type) {
-  if (type === 'published') return '#10b981'
-  if (type === 'draft') return '#f59e0b'
-  if (type === 'added') return '#3b82f6'
-  if (type === 'edited') return '#8b5cf6'
-  if (type === 'deleted') return '#ef4444'
+  if (type === 'article_published') return '#10b981'
+  if (type === 'article_updated') return '#8b5cf6'
+  if (type === 'article_deleted') return '#ef4444'
+  if (type === 'user_created') return '#3b82f6'
+  if (type === 'advertiser_created' || type === 'advertiser_updated') return '#f59e0b'
   return '#9aa3ad'
 }
 
-// ─── Status Badge ──────────────────────────────────────────────────────────
-function StatusBadge({ status }) {
-  const styles = {
-    published: {
-      background: 'rgba(16,185,129,0.1)',
-      color: '#059669',
-      border: '1px solid rgba(16,185,129,0.2)',
-    },
-    draft: {
-      background: 'rgba(245,158,11,0.1)',
-      color: '#d97706',
-      border: '1px solid rgba(245,158,11,0.2)',
-    },
-    pending: {
-      background: 'rgba(59,130,246,0.1)',
-      color: '#2563eb',
-      border: '1px solid rgba(59,130,246,0.2)',
-    },
-  }
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 10px',
-        borderRadius: 20,
-        fontFamily: 'var(--font-ui)',
-        fontSize: 11,
-        fontWeight: 600,
-        ...(styles[status] || styles.draft),
-      }}
-    >
-      {status}
-    </span>
-  )
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins} min ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
+
+const SOURCE_COLORS = { Organic: '#10b981', Social: '#3b82f6', Direct: '#f59e0b', Referral: '#8b5cf6' }
 
 // ─── SVG Line Chart ────────────────────────────────────────────────────────
 function WeeklyTrafficChart({ data, labels }) {
@@ -63,7 +41,7 @@ function WeeklyTrafficChart({ data, labels }) {
   const chartW = W - PAD.left - PAD.right
   const chartH = H - PAD.top - PAD.bottom
 
-  const maxVal = Math.max(...data)
+  const maxVal = Math.max(...data, 1)
   const minVal = 0
 
   function xPos(i) {
@@ -216,10 +194,25 @@ function TrafficSources({ sources }) {
 export default function AdminDashboard() {
   const isMobile = useIsMobile()
 
-  const publishedCount = mockPosts.filter((p) => p.status === 'published').length
-  const draftCount = mockPosts.filter((p) => p.status === 'draft').length
-  const activePublishers = mockPublishers.filter((p) => p.status === 'active').length
-  const weekTotal = mockTrafficData.weeklyViews.reduce((a, b) => a + b, 0)
+  const [stats, setStats] = useState(null)
+  const [counts, setCounts] = useState({ all: 0, published: 0, draft: 0, pending: 0 })
+  const [totalViews, setTotalViews] = useState(0)
+  const [daily, setDaily] = useState({ days: [], sources: [] })
+  const [activity, setActivity] = useState([])
+
+  useEffect(() => {
+    getDashboardStats().then(({ data }) => { if (data) setStats(data) })
+    dashArticleCounts().then(setCounts)
+    getTotalArticleViews().then(({ data }) => setTotalViews(data))
+    getDailyViews(7).then(({ data }) => { if (data) setDaily(data) })
+    getActivityLog({ limit: 5 }).then(({ data }) => setActivity(data || []))
+  }, [])
+
+  const weeklyViews = daily.days.map(d => d.views)
+  const weekLabels = daily.days.map(d => d.label)
+  const weekTotal = weeklyViews.reduce((a, b) => a + b, 0)
+  const sources = daily.sources.map(s => ({ ...s, color: SOURCE_COLORS[s.label] || '#9aa3ad' }))
+  const topPosts = stats?.top_articles || []
 
   const today = new Date()
   const weekStart = new Date(today)
@@ -253,15 +246,15 @@ export default function AdminDashboard() {
         {/* Total Views */}
         <StatCard
           label="Total Views"
-          value={fmt(mockTrafficData.totalViews)}
+          value={fmt(totalViews)}
           sub="All time"
           iconBg="rgba(228,61,48,0.1)"
           icon={<TrendUpIcon color="#e43d30" />}
         />
-        {/* This Month */}
+        {/* Last 30 Days */}
         <StatCard
-          label="This Month"
-          value={fmt(mockTrafficData.thisMonth)}
+          label="Last 30 Days"
+          value={fmt(stats?.total_views_30d ?? 0)}
           sub={
             <span
               style={{
@@ -276,7 +269,7 @@ export default function AdminDashboard() {
                 fontWeight: 600,
               }}
             >
-              {mockTrafficData.thisMonthChange}
+              article views
             </span>
           }
           iconBg="rgba(16,185,129,0.1)"
@@ -285,16 +278,16 @@ export default function AdminDashboard() {
         {/* Publishers */}
         <StatCard
           label="Publishers"
-          value={mockPublishers.length}
-          sub={`Active: ${activePublishers}`}
+          value={fmt(stats?.total_publishers ?? 0)}
+          sub={`${fmt(stats?.total_subscribers ?? 0)} newsletter subscribers`}
           iconBg="rgba(59,130,246,0.1)"
           icon={<UsersIcon color="#3b82f6" />}
         />
         {/* Total Posts */}
         <StatCard
           label="Total Posts"
-          value={mockPosts.length}
-          sub={`${publishedCount} Published · ${draftCount} Drafts`}
+          value={fmt(counts.all)}
+          sub={`${counts.published} Published · ${counts.draft + counts.pending} Drafts`}
           iconBg="rgba(139,92,246,0.1)"
           icon={<DocumentIcon color="#8b5cf6" />}
         />
@@ -365,10 +358,13 @@ export default function AdminDashboard() {
               <span style={{ marginLeft: 4 }}>total views</span>
             </div>
           </div>
-          <WeeklyTrafficChart
-            data={mockTrafficData.weeklyViews}
-            labels={mockTrafficData.weekLabels}
-          />
+          {weeklyViews.length > 1 ? (
+            <WeeklyTrafficChart data={weeklyViews} labels={weekLabels} />
+          ) : (
+            <div style={{ padding: '40px 0', textAlign: 'center', fontSize: 12, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+              Loading traffic…
+            </div>
+          )}
         </div>
 
         {/* Traffic Sources */}
@@ -392,7 +388,7 @@ export default function AdminDashboard() {
           >
             Traffic Sources
           </div>
-          <TrafficSources sources={mockTrafficData.sources} />
+          <TrafficSources sources={sources} />
           <div
             style={{
               marginTop: 20,
@@ -403,7 +399,7 @@ export default function AdminDashboard() {
               gap: 8,
             }}
           >
-            {mockTrafficData.sources.map((src) => (
+            {sources.map((src) => (
               <div
                 key={src.label}
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
@@ -474,14 +470,19 @@ export default function AdminDashboard() {
             Recent Activity
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {mockActivity.slice(0, 5).map((item, idx) => (
+            {activity.length === 0 && (
+              <div style={{ padding: '20px 0', fontSize: 12, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+                No activity yet — publish, edit or manage content and it will show up here.
+              </div>
+            )}
+            {activity.map((item, idx) => (
               <div
                 key={item.id}
                 style={{
                   display: 'flex',
                   gap: 12,
                   padding: '10px 0',
-                  borderBottom: idx < 4 ? '1px solid #f1f5f9' : 'none',
+                  borderBottom: idx < activity.length - 1 ? '1px solid #f1f5f9' : 'none',
                   alignItems: 'flex-start',
                 }}
               >
@@ -491,7 +492,7 @@ export default function AdminDashboard() {
                     width: 8,
                     height: 8,
                     borderRadius: '50%',
-                    background: activityDotColor(item.type),
+                    background: activityDotColor(item.action_type),
                     flexShrink: 0,
                     marginTop: 5,
                   }}
@@ -524,7 +525,7 @@ export default function AdminDashboard() {
                         fontWeight: 600,
                       }}
                     >
-                      {item.author}
+                      {item.user?.name || 'System'}
                     </span>
                     <span
                       style={{
@@ -533,7 +534,7 @@ export default function AdminDashboard() {
                         fontFamily: 'var(--font-ui)',
                       }}
                     >
-                      {item.time}
+                      {timeAgo(item.created_at)}
                     </span>
                   </div>
                 </div>
@@ -582,64 +583,70 @@ export default function AdminDashboard() {
           >
             <span>Title</span>
             <span style={{ textAlign: 'right' }}>Views</span>
-            <span style={{ textAlign: 'right' }}>Change</span>
+            <span style={{ textAlign: 'right' }}>Comments</span>
           </div>
 
           {/* Table rows */}
-          {mockTrafficData.topPosts.map((post, idx) => {
-            const isPos = post.change.startsWith('+')
-            return (
-              <div
-                key={idx}
+          {topPosts.length === 0 && (
+            <div style={{ padding: '20px 0', fontSize: 12, color: 'var(--text-light)', fontFamily: 'var(--font-ui)' }}>
+              No published posts yet.
+            </div>
+          )}
+          {topPosts.map((post, idx) => (
+            <div
+              key={post.id || idx}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 80px 60px',
+                padding: '12px 0',
+                borderBottom: idx < topPosts.length - 1 ? '1px solid #f1f5f9' : 'none',
+                alignItems: 'center',
+                verticalAlign: 'middle',
+              }}
+            >
+              <a
+                href={`/article/${post.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 80px 60px',
-                  padding: '12px 0',
-                  borderBottom: idx < mockTrafficData.topPosts.length - 1 ? '1px solid #f1f5f9' : 'none',
-                  alignItems: 'center',
-                  verticalAlign: 'middle',
+                  fontSize: 12,
+                  color: 'var(--text-dark)',
+                  fontFamily: 'var(--font-ui)',
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  paddingRight: 8,
+                  textDecoration: 'none',
+                }}
+                title={post.title}
+              >
+                {post.title}
+              </a>
+              <span
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-dark)',
+                  fontFamily: 'var(--font-ui)',
+                  fontWeight: 600,
+                  textAlign: 'right',
                 }}
               >
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-dark)',
-                    fontFamily: 'var(--font-ui)',
-                    fontWeight: 500,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    paddingRight: 8,
-                  }}
-                  title={post.title}
-                >
-                  {post.title}
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-dark)',
-                    fontFamily: 'var(--font-ui)',
-                    fontWeight: 600,
-                    textAlign: 'right',
-                  }}
-                >
-                  {fmt(post.views)}
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontFamily: 'var(--font-ui)',
-                    fontWeight: 700,
-                    textAlign: 'right',
-                    color: isPos ? '#059669' : '#dc2626',
-                  }}
-                >
-                  {post.change}
-                </span>
-              </div>
-            )
-          })}
+                {fmt(post.views || 0)}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontFamily: 'var(--font-ui)',
+                  fontWeight: 700,
+                  textAlign: 'right',
+                  color: '#059669',
+                }}
+              >
+                {fmt(post.comments_count || 0)}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

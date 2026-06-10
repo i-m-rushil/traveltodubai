@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { getMyProfile, updateMyProfile, updateMyPassword, signIn, uploadImage } from '../../lib/supabase'
+
+const NOTIF_KEY = 'ttd_notif_prefs'
 
 export default function ProfilePage() {
   const isMobile = useIsMobile()
@@ -15,10 +17,15 @@ export default function ProfilePage() {
     website: '',
     twitter: '',
     instagram: '',
-    role: auth.role || ''
+    role: auth.role || '',
+    avatarUrl: '',
+    joinedAt: null,
+    postCount: 0,
+    status: 'active',
   })
   const [passwords, setPasswords] = useState({ current: '', newPw: '', confirm: '' })
   const [profileSaved, setProfileSaved] = useState(false)
+  const [profileError, setProfileError] = useState('')
   const [pwSaved, setPwSaved] = useState(false)
   const [pwError, setPwError] = useState('')
   const [showCurrent, setShowCurrent] = useState(false)
@@ -26,13 +33,43 @@ export default function ProfilePage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
   const [pwSaving, setPwSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef(null)
 
-  const [notifications, setNotifications] = useState({
-    postApproved: true,
-    weeklyReport: true,
-    comments: false,
-    pushUrgent: true
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      return { postApproved: true, weeklyReport: true, comments: false, pushUrgent: true, ...JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}') }
+    } catch {
+      return { postApproved: true, weeklyReport: true, comments: false, pushUrgent: true }
+    }
   })
+
+  useEffect(() => {
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications))
+  }, [notifications])
+
+  useEffect(() => {
+    getMyProfile().then(p => {
+      if (!p) return
+      const pp = p.publisher_profile || {}
+      setProfile(prev => ({
+        ...prev,
+        name: p.name || '',
+        email: p.email || '',
+        bio: p.bio || '',
+        role: p.role || prev.role,
+        avatarUrl: p.avatar_url || '',
+        joinedAt: p.joined_at,
+        status: p.status || 'active',
+        displayName: pp.display_name || '',
+        phone: pp.phone || '',
+        website: pp.website || '',
+        twitter: pp.social_twitter || '',
+        instagram: pp.social_instagram || '',
+        postCount: pp.post_count || 0,
+      }))
+    })
+  }, [])
 
   function getInitials(name) {
     if (!name) return '?'
@@ -41,29 +78,67 @@ export default function ProfilePage() {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   }
 
-  function handleProfileSave(e) {
+  async function handleProfileSave(e) {
     e.preventDefault()
     setProfileSaving(true)
-    setTimeout(() => {
-      setProfileSaving(false)
-      setProfileSaved(true)
-      setTimeout(() => setProfileSaved(false), 3000)
-    }, 1200)
+    setProfileError('')
+    const { error } = await updateMyProfile({
+      name: profile.name,
+      bio: profile.bio,
+      display_name: profile.displayName || null,
+      phone: profile.phone || null,
+      website: profile.website || null,
+      social_twitter: profile.twitter || null,
+      social_instagram: profile.instagram || null,
+    })
+    setProfileSaving(false)
+    if (error) {
+      setProfileError(error.message || 'Could not save your profile.')
+      return
+    }
+    localStorage.setItem('ttd_auth', JSON.stringify({ ...auth, name: profile.name }))
+    setProfileSaved(true)
+    setTimeout(() => setProfileSaved(false), 3000)
   }
 
-  function handlePasswordUpdate(e) {
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingPhoto(true)
+    const { data, error } = await uploadImage(file, 'avatars')
+    if (!error && data?.url) {
+      const { error: saveErr } = await updateMyProfile({ avatar_url: data.url })
+      if (!saveErr) setProfile(p => ({ ...p, avatarUrl: data.url }))
+    } else if (error) {
+      setProfileError(error.message || 'Photo upload failed.')
+    }
+    setUploadingPhoto(false)
+    e.target.value = ''
+  }
+
+  async function handlePasswordUpdate(e) {
     e.preventDefault()
     setPwError('')
     if (!passwords.current) { setPwError('Please enter your current password.'); return }
     if (passwords.newPw.length < 8) { setPwError('New password must be at least 8 characters.'); return }
     if (passwords.newPw !== passwords.confirm) { setPwError('Passwords do not match.'); return }
     setPwSaving(true)
-    setTimeout(() => {
+    // Re-authenticate to verify the current password before changing it
+    const { error: authErr } = await signIn(profile.email, passwords.current)
+    if (authErr) {
       setPwSaving(false)
-      setPwSaved(true)
-      setPasswords({ current: '', newPw: '', confirm: '' })
-      setTimeout(() => setPwSaved(false), 3000)
-    }, 1200)
+      setPwError('Current password is incorrect.')
+      return
+    }
+    const { error } = await updateMyPassword(passwords.newPw)
+    setPwSaving(false)
+    if (error) {
+      setPwError(error.message || 'Could not update password.')
+      return
+    }
+    setPwSaved(true)
+    setPasswords({ current: '', newPw: '', confirm: '' })
+    setTimeout(() => setPwSaved(false), 3000)
   }
 
   const cardStyle = {
@@ -138,13 +213,18 @@ export default function ProfilePage() {
 
               {/* Avatar */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 28, fontWeight: 700, color: '#fff', userSelect: 'none' }}>{getInitials(profile.name)}</span>
-                </div>
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt={profile.name} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 28, fontWeight: 700, color: '#fff', userSelect: 'none' }}>{getInitials(profile.name)}</span>
+                  </div>
+                )}
                 <div>
                   <div style={{ fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 600, color: 'var(--text-dark)', marginBottom: 6 }}>{profile.name || 'Your Name'}</div>
-                  <button style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 14px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <CameraIcon /> Change Photo
+                  <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                  <button type="button" onClick={() => photoInputRef.current?.click()} disabled={uploadingPhoto} style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 14px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 12, cursor: uploadingPhoto ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CameraIcon /> {uploadingPhoto ? 'Uploading…' : 'Change Photo'}
                   </button>
                 </div>
               </div>
@@ -161,7 +241,7 @@ export default function ProfilePage() {
                   </div>
                   <div style={fieldWrapStyle}>
                     <label style={labelStyle}>Email</label>
-                    <input style={inputStyle} type="email" value={profile.email} onChange={e => setProfile(p => ({ ...p, email: e.target.value }))} placeholder="you@example.com" />
+                    <input style={inputDisabledStyle} type="email" value={profile.email} disabled readOnly placeholder="you@example.com" />
                   </div>
                   <div style={fieldWrapStyle}>
                     <label style={labelStyle}>Phone</label>
@@ -185,6 +265,11 @@ export default function ProfilePage() {
                   <input style={inputDisabledStyle} value={profile.role === 'admin' ? 'Admin' : 'Publisher'} disabled readOnly />
                 </div>
 
+                {profileError && (
+                  <div style={{ fontFamily: 'var(--font-ui)', fontSize: 12, color: 'var(--brand)', background: 'rgba(228,61,48,0.07)', border: '1px solid rgba(228,61,48,0.15)', borderRadius: 8, padding: '9px 14px', marginBottom: 14 }}>
+                    {profileError}
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={profileSaving}
@@ -272,9 +357,13 @@ export default function ProfilePage() {
 
               {/* Account Info Card */}
               <div style={{ ...cardStyle, textAlign: 'center' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                  <span style={{ fontFamily: 'var(--font-ui)', fontSize: 28, fontWeight: 700, color: '#fff', userSelect: 'none' }}>{getInitials(profile.name)}</span>
-                </div>
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt={profile.name} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block' }} />
+                ) : (
+                  <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                    <span style={{ fontFamily: 'var(--font-ui)', fontSize: 28, fontWeight: 700, color: '#fff', userSelect: 'none' }}>{getInitials(profile.name)}</span>
+                  </div>
+                )}
                 <div style={{ fontFamily: 'var(--font-ui)', fontSize: 16, fontWeight: 700, color: 'var(--text-dark)', marginBottom: 6 }}>{profile.name || '—'}</div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontFamily: 'var(--font-ui)', fontSize: 11, fontWeight: 600, background: 'rgba(59,130,246,0.1)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.2)', marginBottom: 14 }}>
                   {profile.role === 'admin' ? 'Admin' : 'Publisher'}
@@ -283,8 +372,8 @@ export default function ProfilePage() {
 
                 <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
                   {[
-                    { label: 'Member Since', value: 'January 2025' },
-                    { label: 'Posts Published', value: '24' }
+                    { label: 'Member Since', value: profile.joinedAt ? new Date(profile.joinedAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—' },
+                    { label: 'Posts Published', value: String(profile.postCount) }
                   ].map(item => (
                     <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-ui)', fontSize: 12, marginBottom: 8 }}>
                       <span style={{ color: 'var(--text-light)' }}>{item.label}</span>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { signInWithProfile } from '../lib/supabase';
 
 export default function LoginPage() {
   const isMobile = useIsMobile();
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [focused, setFocused] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = 'Sign In | Travel to Dubai';
@@ -20,17 +22,27 @@ export default function LoginPage() {
     if (error) setError('');
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (form.email === 'admin@traveltodubai.com' && form.password === 'Admin@123') {
-      localStorage.setItem('ttd_auth', JSON.stringify({ role: 'admin', name: 'Admin', email: 'admin@traveltodubai.com' }));
-      navigate('/admin');
-    } else if (form.email === 'publisher@traveltodubai.com' && form.password === 'Publisher@123') {
-      localStorage.setItem('ttd_auth', JSON.stringify({ role: 'publisher', name: 'Sarah Ahmed', email: 'publisher@traveltodubai.com' }));
-      navigate('/dashboard');
-    } else {
+    setLoading(true);
+    const { data, error: authError } = await signInWithProfile(form.email.trim(), form.password);
+    setLoading(false);
+    if (authError || !data?.profile) {
       setError('Invalid email or password. Please try again.');
+      return;
     }
+    const { profile } = data;
+    if (profile.role !== 'admin' && profile.role !== 'publisher') {
+      setError('This account does not have dashboard access.');
+      return;
+    }
+    localStorage.setItem('ttd_auth', JSON.stringify({
+      role: profile.role,
+      name: profile.name,
+      email: profile.email,
+      id: profile.id,
+    }));
+    navigate(profile.role === 'admin' ? '/admin' : '/dashboard');
   }
 
   const field = (name, label, type = 'text', placeholder = '') => {
@@ -195,11 +207,12 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <button type="submit" style={{
+              <button type="submit" disabled={loading} style={{
                 width: '100%', padding: '15px',
                 fontFamily: 'var(--font-ui)', fontWeight: 700, fontSize: 14,
                 color: '#fff', background: 'var(--brand)',
-                border: 'none', borderRadius: 10, cursor: 'pointer',
+                opacity: loading ? 0.7 : 1,
+                border: 'none', borderRadius: 10, cursor: loading ? 'default' : 'pointer',
                 boxShadow: '0 4px 18px rgba(228,61,48,0.35)',
                 transition: 'background 0.18s, box-shadow 0.18s, transform 0.15s',
                 letterSpacing: '0.3px',
@@ -207,7 +220,7 @@ export default function LoginPage() {
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand-dark)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 22px rgba(228,61,48,0.45)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--brand)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(228,61,48,0.35)'; }}
               >
-                Sign In →
+                {loading ? 'Signing in…' : 'Sign In →'}
               </button>
             </form>
 

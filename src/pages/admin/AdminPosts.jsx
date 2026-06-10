@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { mockPosts, mockPublishers } from '../../data/dashboardData'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { dashListArticles, dashArticleCounts, updateArticleStatus, deleteArticle, logActivity } from '../../lib/supabase'
 
 const AVATAR_COLORS = [
   '#e43d30', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
@@ -8,8 +7,13 @@ const AVATAR_COLORS = [
 ]
 
 function getPublisherColor(authorId) {
-  return AVATAR_COLORS[(authorId - 1) % AVATAR_COLORS.length]
+  const s = String(authorId || '')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return AVATAR_COLORS[h % AVATAR_COLORS.length]
 }
+
+const PAGE_SIZE = 15
 
 function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -72,7 +76,10 @@ function CategoryBadge({ category }) {
 }
 
 export default function AdminPosts() {
-  const [posts, setPosts] = useState(mockPosts)
+  const [posts, setPosts] = useState([])
+  const [total, setTotal] = useState(0)
+  const [counts, setCounts] = useState({ all: 0, published: 0, draft: 0, pending: 0 })
+  const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [openStatusMenu, setOpenStatusMenu] = useState(null)
@@ -80,6 +87,30 @@ export default function AdminPosts() {
   const [hoveredBtn, setHoveredBtn] = useState(null)
   const [hoveredTab, setHoveredTab] = useState(null)
   const menuRef = useRef(null)
+  const searchTimer = useRef(null)
+  const [search, setSearch] = useState('') // debounced value sent to the server
+
+  const loadPosts = useCallback(async (offset = 0) => {
+    setLoading(offset === 0)
+    const { data, count, error } = await dashListArticles({
+      status: filter, search, limit: PAGE_SIZE, offset,
+    })
+    if (!error) {
+      setPosts(prev => offset === 0 ? (data || []) : [...prev, ...(data || [])])
+      setTotal(count || 0)
+    }
+    setLoading(false)
+  }, [filter, search])
+
+  useEffect(() => { loadPosts(0) }, [loadPosts])
+  useEffect(() => { dashArticleCounts().then(setCounts) }, [])
+
+  // Debounce the search box → server query
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => setSearch(searchTerm.trim()), 350)
+    return () => clearTimeout(searchTimer.current)
+  }, [searchTerm])
 
   // Close status dropdown on outside click
   useEffect(() => {
@@ -94,34 +125,51 @@ export default function AdminPosts() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [openStatusMenu])
 
-  function handleStatusChange(postId, newStatus) {
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, status: newStatus } : p))
+  async function handleStatusChange(postId, newStatus) {
     setOpenStatusMenu(null)
-  }
-
-  function handleDelete(postId) {
-    if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-      setPosts(prev => prev.filter(p => p.id !== postId))
+    const prev = posts
+    setPosts(p => p.map(x => x.id === postId ? { ...x, status: newStatus } : x))
+    const { error } = await updateArticleStatus(postId, newStatus)
+    if (error) {
+      setPosts(prev)
+      window.alert(`Could not update status: ${error.message}`)
+      return
     }
+    dashArticleCounts().then(setCounts)
+    const post = prev.find(x => x.id === postId)
+    logActivity({
+      actionType: 'article_updated',
+      entityType: 'article',
+      entityId: postId,
+      message: `Admin set "${post?.title || 'a post'}" to ${newStatus}`,
+    })
   }
 
-  const filtered = posts.filter(p => {
-    const matchFilter = filter === 'all' || p.status === filter
-    const s = searchTerm.toLowerCase()
-    const matchSearch = !s || p.title.toLowerCase().includes(s) || p.author.toLowerCase().includes(s)
-    return matchFilter && matchSearch
-  })
-
-  const counts = {
-    all: posts.length,
-    published: posts.filter(p => p.status === 'published').length,
-    draft: posts.filter(p => p.status === 'draft' || p.status === 'pending').length,
+  async function handleDelete(postId) {
+    if (!window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) return
+    const post = posts.find(x => x.id === postId)
+    const { error } = await deleteArticle(postId)
+    if (error) {
+      window.alert(`Could not delete post: ${error.message}`)
+      return
+    }
+    setPosts(prev => prev.filter(p => p.id !== postId))
+    setTotal(t => Math.max(0, t - 1))
+    dashArticleCounts().then(setCounts)
+    logActivity({
+      actionType: 'article_deleted',
+      entityType: 'article',
+      entityId: postId,
+      message: `Admin deleted "${post?.title || 'a post'}"`,
+    })
   }
+
+  const filtered = posts
 
   const tabs = [
     { key: 'all', label: 'All', count: counts.all },
     { key: 'published', label: 'Published', count: counts.published },
-    { key: 'draft', label: 'Drafts', count: counts.draft },
+    { key: 'draft', label: 'Drafts', count: counts.draft + counts.pending },
   ]
 
   const tabActiveStyle = {
@@ -154,7 +202,7 @@ export default function AdminPosts() {
             borderRadius: 20, padding: '2px 12px',
             fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-ui)',
           }}>
-            {posts.length} posts
+            {counts.all} posts
           </span>
         </div>
 
@@ -196,7 +244,7 @@ export default function AdminPosts() {
         <SearchIcon color="var(--text-light)" />
         <input
           type="text"
-          placeholder="Search by title or author..."
+          placeholder="Search posts by title..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           style={{
@@ -218,7 +266,11 @@ export default function AdminPosts() {
       {/* Table Card */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', fontFamily: 'var(--font-ui)', fontSize: 14, color: 'var(--text-light)' }}>
+            Loading posts…
+          </div>
+        ) : filtered.length === 0 ? (
           /* Empty State */
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px' }}>
             <div style={{ color: '#cbd5e1', marginBottom: 16 }}>
@@ -266,14 +318,15 @@ export default function AdminPosts() {
                     <td style={{ padding: '14px 16px', maxWidth: 320 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <img
-                          src={post.image}
+                          src={post.featured_image || ''}
                           alt={post.title}
                           style={{
                             width: 48, height: 48, borderRadius: 8,
                             objectFit: 'cover', flexShrink: 0,
                             border: '1px solid #e2e8f0',
+                            background: '#f1f5f9',
                           }}
-                          onError={e => { e.target.style.background = '#f1f5f9'; e.target.src = '' }}
+                          onError={e => { e.target.style.visibility = 'hidden' }}
                         />
                         <div style={{ minWidth: 0 }}>
                           <div style={{
@@ -288,7 +341,7 @@ export default function AdminPosts() {
                             marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden',
                             textOverflow: 'ellipsis', maxWidth: 240,
                           }}>
-                            {post.excerpt.slice(0, 80)}{post.excerpt.length > 80 ? '...' : ''}
+                            {(post.excerpt || '').slice(0, 80)}{(post.excerpt || '').length > 80 ? '...' : ''}
                           </div>
                         </div>
                       </div>
@@ -297,24 +350,28 @@ export default function AdminPosts() {
                     {/* Author */}
                     <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{
-                          width: 28, height: 28, borderRadius: '50%',
-                          background: getPublisherColor(post.authorId),
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: '#fff', fontWeight: 700, fontSize: 10,
-                          fontFamily: 'var(--font-ui)', flexShrink: 0,
-                        }}>
-                          {getInitials(post.author)}
-                        </div>
+                        {post.author?.avatar_url ? (
+                          <img src={post.author.avatar_url} alt={post.author?.name || ''} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{
+                            width: 28, height: 28, borderRadius: '50%',
+                            background: getPublisherColor(post.author?.id),
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', fontWeight: 700, fontSize: 10,
+                            fontFamily: 'var(--font-ui)', flexShrink: 0,
+                          }}>
+                            {getInitials(post.author?.name || 'T D')}
+                          </div>
+                        )}
                         <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-mid)', fontWeight: 500 }}>
-                          {post.author}
+                          {post.author?.name || '—'}
                         </span>
                       </div>
                     </td>
 
                     {/* Category */}
                     <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                      <CategoryBadge category={post.category} />
+                      <CategoryBadge category={post.category?.label || 'Uncategorised'} />
                     </td>
 
                     {/* Status */}
@@ -324,7 +381,7 @@ export default function AdminPosts() {
 
                     {/* Date */}
                     <td style={{ padding: '14px 16px', fontFamily: 'var(--font-ui)', fontSize: 13, color: 'var(--text-mid)', whiteSpace: 'nowrap' }}>
-                      {formatDate(post.date)}
+                      {formatDate(post.published_at || post.created_at)}
                     </td>
 
                     {/* Views */}
@@ -332,7 +389,7 @@ export default function AdminPosts() {
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                         <EyeIcon color="var(--text-light)" />
                         <span style={{ fontFamily: 'var(--font-ui)', fontSize: 13, fontWeight: 600, color: 'var(--text-dark)' }}>
-                          {formatViews(post.views)}
+                          {formatViews(post.views || 0)}
                         </span>
                       </div>
                     </td>
@@ -415,6 +472,20 @@ export default function AdminPosts() {
                 ))}
               </tbody>
             </table>
+            {posts.length < total && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', borderTop: '1px solid #f1f5f9' }}>
+                <button
+                  onClick={() => loadPosts(posts.length)}
+                  style={{
+                    background: '#fff', color: 'var(--text-mid)', border: '1px solid #e2e8f0',
+                    borderRadius: 8, padding: '8px 22px', fontFamily: 'var(--font-ui)',
+                    fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                  }}
+                >
+                  Load more ({total - posts.length} remaining)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

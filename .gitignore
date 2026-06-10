@@ -25,3 +25,8 @@ dist-ssr
 
 .vercel
 .env*
+
+# WordPress export (238MB) and Supabase CLI artifacts
+*.xml
+supabase/.temp/
+deno.lock

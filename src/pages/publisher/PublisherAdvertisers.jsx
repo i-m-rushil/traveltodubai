@@ -1,17 +1,26 @@
-import { useState } from 'react'
-import { mockAdvertisers } from '../../data/dashboardData'
-import { AdvertiserModal } from '../admin/AdminAdvertisers'
+import { useState, useEffect } from 'react'
+import { listAdvertisers } from '../../lib/supabase'
+import { AdvertiserModal, advertiserFromDb } from '../admin/AdminAdvertisers'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 const PKG_COLOR = { Premium: '#C9A050', Standard: '#3b82f6', Basic: '#64748b' }
 
 export default function PublisherAdvertisers() {
   const isMobile = useIsMobile()
+  const [advertisers, setAdvertisers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [search, setSearch] = useState('')
   const [lightbox, setLightbox] = useState(null)
 
-  const filtered = mockAdvertisers.filter(a =>
+  useEffect(() => {
+    listAdvertisers().then(({ data }) => {
+      setAdvertisers((data || []).map(advertiserFromDb))
+      setLoading(false)
+    })
+  }, [])
+
+  const filtered = advertisers.filter(a =>
     a.company.toLowerCase().includes(search.toLowerCase()) ||
     a.contact.toLowerCase().includes(search.toLowerCase()) ||
     a.industry.toLowerCase().includes(search.toLowerCase())
@@ -126,7 +135,7 @@ export default function PublisherAdvertisers() {
         ))}
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', color: '#94a3b8', fontSize: 14 }}>
-            No advertisers match your search.
+            {loading ? 'Loading advertisers…' : advertisers.length === 0 ? 'No advertising partners yet.' : 'No advertisers match your search.'}
           </div>
         )}
       </div>

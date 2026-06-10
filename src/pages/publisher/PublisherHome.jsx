@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useIsMobile } from '../../hooks/useIsMobile'
-import { mockPosts } from '../../data/dashboardData'
+import { getSession, dashListArticles, getPublisherStats } from '../../lib/supabase'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function formatDate(dateStr) {
@@ -111,19 +111,28 @@ export default function PublisherHome() {
   const isMobile = useIsMobile()
   const auth = JSON.parse(localStorage.getItem('ttd_auth') || '{}')
 
-  const myPosts = mockPosts.filter((p) => p.authorId === 1)
-  const published = myPosts.filter((p) => p.status === 'published')
-  const drafts = myPosts.filter((p) => p.status === 'draft')
-  const totalViews = published.reduce((sum, p) => sum + (p.views || 0), 0)
-  const recentPosts = [...myPosts]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 5)
+  const [myStats, setMyStats] = useState({ total: 0, published: 0, drafts: 0, views: 0 })
+  const [recentPosts, setRecentPosts] = useState([])
+
+  useEffect(() => {
+    (async () => {
+      const session = await getSession()
+      if (!session) return
+      const uid = session.user.id
+      const [{ data: statsData }, { data: recent }] = await Promise.all([
+        getPublisherStats(uid),
+        dashListArticles({ authorId: uid, limit: 5 }),
+      ])
+      if (statsData) setMyStats(statsData)
+      setRecentPosts(recent || [])
+    })()
+  }, [])
 
   const stats = [
-    { label: 'My Posts', value: myPosts.length, icon: <DocumentIcon size={14} /> },
-    { label: 'Published', value: published.length, icon: <CheckCircleIcon size={14} /> },
-    { label: 'Drafts', value: drafts.length, icon: <DraftIcon size={14} /> },
-    { label: 'Total Views', value: formatViews(totalViews), icon: <EyeIcon size={14} /> },
+    { label: 'My Posts', value: myStats.total, icon: <DocumentIcon size={14} /> },
+    { label: 'Published', value: myStats.published, icon: <CheckCircleIcon size={14} /> },
+    { label: 'Drafts', value: myStats.drafts, icon: <DraftIcon size={14} /> },
+    { label: 'Total Views', value: formatViews(myStats.views), icon: <EyeIcon size={14} /> },
   ]
 
   const tips = [
@@ -465,8 +474,8 @@ export default function PublisherHome() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { label: 'Avg views / post', value: published.length ? formatViews(Math.round(totalViews / published.length)) : '0' },
-                { label: 'Published rate', value: myPosts.length ? Math.round((published.length / myPosts.length) * 100) + '%' : '0%' },
+                { label: 'Avg views / post', value: myStats.published ? formatViews(Math.round(myStats.views / myStats.published)) : '0' },
+                { label: 'Published rate', value: myStats.total ? Math.round((myStats.published / myStats.total) * 100) + '%' : '0%' },
               ].map((row) => (
                 <div
                   key={row.label}
@@ -525,9 +534,9 @@ function RecentPostRow({ post, isLast }) {
       }}
     >
       {/* Thumbnail */}
-      {post.image ? (
+      {post.featured_image ? (
         <img
-          src={post.image}
+          src={post.featured_image}
           alt={post.title}
           style={{
             width: 60,
@@ -587,7 +596,7 @@ function RecentPostRow({ post, isLast }) {
               fontFamily: 'var(--font-ui)',
             }}
           >
-            {formatDate(post.date)}
+            {formatDate(post.published_at || post.created_at)}
           </span>
           {post.views > 0 && (
             <span
