@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 
 export const FLIGHT_CURRENCY = 'usd';
-export const HOTEL_CURRENCY = 'aed';
+export const HOTEL_CURRENCY = 'usd';
 
 // Public affiliate ID (it appears in every partner URL) — safe in the client.
 const MARKER = import.meta.env.VITE_TRAVELPAYOUTS_MARKER || '';

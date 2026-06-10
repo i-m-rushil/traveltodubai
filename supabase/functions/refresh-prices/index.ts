@@ -28,7 +28,7 @@ const ORIGINS = [
   { code: 'CAI', city: 'Cairo',     cc: 'EG' },
 ];
 const FLIGHT_CURRENCY = 'usd';
-const HOTEL_CURRENCY = 'aed';
+const HOTEL_CURRENCY = 'usd';
 
 function monthStr(offsetMonths: number): string {
   const d = new Date();
