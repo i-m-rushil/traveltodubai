@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
+import TravelSearchResults from '../components/travel/TravelSearchResults';
+import {
+  searchFlights, searchHotels, originToIata, openAffiliate,
+  aviasalesFallbackLink, hotellookFallbackLink,
+  getPopularRoutes, getFeaturedHotels, fmtPrice, fmtDuration, AIRLINE_NAMES,
+} from '../lib/travelApi';
 
 /* ─────────────────────────────────────────────
    DESIGN SYSTEM
@@ -346,6 +352,11 @@ export default function PlanTripPage() {
   const [tab, setTab]           = useState('flights');
   const [activeSec, setActiveSec] = useState(null); /* which pill section is open */
 
+  /* Live search */
+  const [searchState, setSearchState] = useState({ status: 'idle' });
+  const [formError, setFormError] = useState('');
+  const resultsRef = useRef(null);
+
   /* Flight form */
   const [from, setFrom]         = useState('');
   const [to, setTo]             = useState('Dubai, UAE — DXB');
@@ -372,6 +383,58 @@ export default function PlanTripPage() {
   function closeSec() { setActiveSec(null); }
   function toggleSec(id) { setActiveSec(s => s === id ? null : id); }
   function swapCities() { const t = from; setFrom(to); setTo(t); }
+
+  async function handleSearch() {
+    setFormError('');
+    const isHotels = tab === 'hotels';
+
+    if (isHotels) {
+      if (!checkIn || !checkOut) { setFormError('Please pick check-in and check-out dates.'); return; }
+      if (checkOut <= checkIn) { setFormError('Check-out must be after check-in.'); return; }
+    } else {
+      // flights & packages share the flight form; multi-city searches as round trip
+      const originCode = originToIata(from);
+      if (!originCode) { setFormError('Please choose an origin city or enter an airport code (e.g. LHR).'); return; }
+      if (!depart) { setFormError('Please pick a departure date.'); return; }
+      if (tripType === 'round' && ret && ret < depart) { setFormError('Return date must be after departure.'); return; }
+    }
+
+    const type = isHotels ? 'hotels' : 'flights';
+    const meta = isHotels
+      ? { checkIn, checkOut, adults: hGuests }
+      : { originCode: originToIata(from), originLabel: from.split('(')[0].trim(), departDate: depart, returnDate: tripType === 'round' ? (ret || null) : null };
+
+    setSearchState({ status: 'loading', type, meta });
+    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+
+    try {
+      const data = isHotels
+        ? await searchHotels({ checkIn, checkOut, adults: hGuests })
+        : await searchFlights({ originCode: meta.originCode, departDate: depart, returnDate: meta.returnDate });
+      setSearchState({ status: 'success', type, offers: data.offers, stale: data.stale, meta });
+    } catch (err) {
+      console.error('travel search failed:', err);
+      setSearchState({ status: 'error', type, meta });
+    }
+  }
+
+  function handleBook(offer) {
+    const isHotels = searchState.type === 'hotels';
+    openAffiliate({
+      clickType: isHotels ? 'hotel_result' : 'flight_result',
+      itemLabel: isHotels ? offer.name : `${searchState.meta?.originCode || ''}→DXB ${offer.airlineIata}${offer.flightNumber}`,
+      partnerUrl: offer.deepLink,
+      price: isHotels ? offer.priceFrom : offer.price,
+      currency: offer.currency,
+      searchParams: searchState.meta,
+    });
+  }
+
+  function handleFallbackClick() {
+    const isHotels = searchState.type === 'hotels';
+    const url = isHotels ? hotellookFallbackLink(searchState.meta || {}) : aviasalesFallbackLink(searchState.meta || {});
+    openAffiliate({ clickType: 'fallback_cta', itemLabel: isHotels ? 'hotellook fallback' : 'aviasales fallback', partnerUrl: url, searchParams: searchState.meta });
+  }
 
   /* Pill field base style */
   const PF = (id, isFirst, isLast) => ({
@@ -515,7 +578,7 @@ export default function PlanTripPage() {
 
       {/* SEARCH BUTTON */}
       <div style={{ padding:'8px', flexShrink:0, display:'flex', alignItems:'center' }}>
-        <button style={{ height:'48px', padding:'0 24px', background:'linear-gradient(135deg, #b1132f, #8e0f26)', color:'#fff', border:'none', borderRadius:'48px', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px', fontWeight:700, fontSize:'14px', letterSpacing:'0.2px', boxShadow:'0 2px 8px rgba(177,19,47,0.4)', transition:'all 0.2s', whiteSpace:'nowrap' }}
+        <button onClick={handleSearch} style={{ height:'48px', padding:'0 24px', background:'linear-gradient(135deg, #b1132f, #8e0f26)', color:'#fff', border:'none', borderRadius:'48px', cursor:'pointer', display:'flex', alignItems:'center', gap:'8px', fontWeight:700, fontSize:'14px', letterSpacing:'0.2px', boxShadow:'0 2px 8px rgba(177,19,47,0.4)', transition:'all 0.2s', whiteSpace:'nowrap' }}
           onMouseEnter={e => { e.currentTarget.style.transform='scale(1.03)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(177,19,47,0.5)'; }}
           onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 2px 8px rgba(177,19,47,0.4)'; }}>
           <Ico.Search />
@@ -591,7 +654,7 @@ export default function PlanTripPage() {
             </div>
           </div>
         </>)}
-        <button style={{ width:'100%', height:'50px', background:'linear-gradient(135deg, #b1132f, #8e0f26)', color:'#fff', border:'none', borderRadius:'12px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', fontWeight:700, fontSize:'15px', boxShadow:'0 2px 10px rgba(177,19,47,0.35)' }}>
+        <button onClick={handleSearch} style={{ width:'100%', height:'50px', background:'linear-gradient(135deg, #b1132f, #8e0f26)', color:'#fff', border:'none', borderRadius:'12px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', fontWeight:700, fontSize:'15px', boxShadow:'0 2px 10px rgba(177,19,47,0.35)' }}>
           <Ico.Search />
           Search {tab === 'flights' ? 'Flights' : tab === 'hotels' ? 'Hotels' : 'Packages'}
         </button>
@@ -687,8 +750,20 @@ export default function PlanTripPage() {
             )}
 
             {isMobile ? SearchCardMobile : SearchPillDesktop}
+            {formError && (
+              <div style={{ marginTop:'10px', textAlign:'center' }}>
+                <span style={{ display:'inline-block', background:'rgba(177,19,47,0.08)', border:'1px solid rgba(177,19,47,0.25)', color:'#b1132f', borderRadius:'20px', padding:'6px 16px', fontSize:'13px', fontWeight:600 }}>{formError}</span>
+              </div>
+            )}
           </div>
 
+        </div>
+
+        {/* ═══════════════════════════════════════
+            LIVE SEARCH RESULTS
+        ═══════════════════════════════════════ */}
+        <div ref={resultsRef} style={{ scrollMarginTop: '80px' }}>
+          <TravelSearchResults state={searchState} onBook={handleBook} onFallbackClick={handleFallbackClick} />
         </div>
 
         {/* ═══════════════════════════════════════
