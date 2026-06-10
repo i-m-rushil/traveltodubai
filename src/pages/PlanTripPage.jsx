@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useIsMobile } from '../hooks/useIsMobile';
 import TravelSearchResults from '../components/travel/TravelSearchResults';
 import {
-  searchFlights, searchHotels, originToIata, openAffiliate,
+  searchFlights, searchHotels, searchAirports, originToIata, openAffiliate,
   aviasalesFallbackLink, hotellookFallbackLink,
   getPopularRoutes, getFeaturedHotels, fmtPrice, fmtDuration, AIRLINE_NAMES,
 } from '../lib/travelApi';
@@ -177,6 +177,115 @@ function DropShell({ onClose, children, wide }) {
   return (
     <div ref={ref} style={{ position:'absolute', top:'calc(100% + 12px)', left:0, zIndex:300, background:'#fff', borderRadius:'20px', boxShadow:'0 8px 32px rgba(0,0,0,0.16)', border:'1px solid #e8e8e8', padding:'24px', minWidth: wide ? '340px' : '280px', animation:'fadeSlideUp 0.2s ease' }}>
       {children}
+    </div>
+  );
+}
+
+/* ─── Airport / City Autocomplete ─── */
+const POPULAR_ORIGINS = [
+  { name:'London', code:'LHR', country_name:'United Kingdom' },
+  { name:'New York', code:'JFK', country_name:'United States' },
+  { name:'Paris', code:'CDG', country_name:'France' },
+  { name:'Mumbai', code:'BOM', country_name:'India' },
+  { name:'Singapore', code:'SIN', country_name:'Singapore' },
+  { name:'Toronto', code:'YYZ', country_name:'Canada' },
+  { name:'Sydney', code:'SYD', country_name:'Australia' },
+];
+
+function AirportAutocomplete({ value, onSelect, placeholder, compact }) {
+  const [q, setQ] = useState(value || '');
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showDrop, setShowDrop] = useState(false);
+  const timerRef = useRef(null);
+  const inputRef = useRef(null);
+  const wrapRef = useRef(null);
+
+  useEffect(() => { if (!compact) inputRef.current?.focus(); }, [compact]);
+
+  useEffect(() => {
+    if (!compact) return;
+    const fn = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false); };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, [compact]);
+
+  function handleChange(e) {
+    const val = e.target.value;
+    setQ(val);
+    if (compact) onSelect(val);
+    clearTimeout(timerRef.current);
+    if (val.length < 2) { setSuggestions([]); setLoading(false); return; }
+    setLoading(true);
+    timerRef.current = setTimeout(async () => {
+      const res = await searchAirports(val);
+      setSuggestions(res);
+      setLoading(false);
+    }, 300);
+  }
+
+  function pick(item) {
+    const label = `${item.name} (${item.code})`;
+    setQ(label);
+    setSuggestions([]);
+    setShowDrop(false);
+    onSelect(label);
+  }
+
+  const items = q.length >= 2 ? suggestions : POPULAR_ORIGINS;
+  const isPopular = q.length < 2;
+
+  const List = (
+    <div style={{ maxHeight:'260px', overflowY:'auto' }}>
+      {isPopular && <div style={{ fontWeight:700, fontSize:'12px', color:'#999', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'10px' }}>Popular origins</div>}
+      {loading && <div style={{ fontSize:'13px', color:'#999', textAlign:'center', padding:'10px' }}>Searching...</div>}
+      {!loading && items.map((item, i) => (
+        <button key={i}
+          onMouseDown={e => e.preventDefault()}
+          onClick={() => pick(item)}
+          style={{ display:'flex', alignItems:'center', gap:'10px', width:'100%', padding:'9px 8px', background:'transparent', border:'none', cursor:'pointer', borderRadius:'8px', transition:'background 0.12s', textAlign:'left' }}
+          onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
+          onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+          <div style={{ width:'32px', height:'32px', borderRadius:'50%', background:'#f0f0f0', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <Ico.Plane s={14} />
+          </div>
+          <div>
+            <div style={{ fontSize:'14px', color:'#222', fontWeight:500 }}>{item.name}</div>
+            <div style={{ fontSize:'11px', color:'#717171' }}>{item.country_name} · {item.code}</div>
+          </div>
+        </button>
+      ))}
+      {!loading && !isPopular && suggestions.length === 0 && (
+        <div style={{ fontSize:'13px', color:'#999', textAlign:'center', padding:'8px' }}>No results found</div>
+      )}
+    </div>
+  );
+
+  if (!compact) {
+    return (
+      <div>
+        <input ref={inputRef} value={q} onChange={handleChange}
+          placeholder={placeholder || 'Search city or airport...'}
+          style={{ width:'100%', height:'40px', border:'1.5px solid #e2e2e2', borderRadius:'10px', padding:'0 12px', fontSize:'14px', fontFamily:'inherit', color:'#222', background:'#f8f8f8', outline:'none', boxSizing:'border-box', marginBottom:'14px' }}
+          onFocus={e => e.target.style.borderColor='#222'}
+          onBlur={e => e.target.style.borderColor='#e2e2e2'} />
+        {List}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position:'relative' }}>
+      <input ref={inputRef} type="text" value={q} onChange={handleChange}
+        onFocus={e => { e.target.style.borderColor='#222'; setShowDrop(true); }}
+        onBlur={e => e.target.style.borderColor='#e2e2e2'}
+        placeholder={placeholder || 'City or airport'}
+        style={{ width:'100%', height:'46px', border:'1.5px solid #e2e2e2', borderRadius:'10px', padding:'0 14px', fontSize:'14px', fontFamily:'inherit', color:'#222', background:'#fff', outline:'none', boxSizing:'border-box' }} />
+      {showDrop && (
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', left:0, right:0, background:'#fff', borderRadius:'14px', boxShadow:'0 6px 24px rgba(0,0,0,0.15)', border:'1px solid #e8e8e8', padding:'14px', zIndex:200, animation:'fadeSlideUp 0.15s ease' }}>
+          {List}
+        </div>
+      )}
     </div>
   );
 }
@@ -514,15 +623,10 @@ export default function PlanTripPage() {
         </div>
         {activeSec === 'from' && (
           <DropShell onClose={closeSec} wide>
-            <div style={{ fontWeight:700, fontSize:'13px', color:'#222', marginBottom:'14px' }}>Popular origins</div>
-            {['London (LHR)', 'New York (JFK)', 'Paris (CDG)', 'Mumbai (BOM)', 'Singapore (SIN)', 'Toronto (YYZ)', 'Sydney (SYD)'].map(c => (
-              <button key={c} onClick={() => { setFrom(c); closeSec(); }} style={{ display:'flex', alignItems:'center', gap:'10px', width:'100%', padding:'10px 8px', background:'transparent', border:'none', cursor:'pointer', borderRadius:'8px', transition:'background 0.15s', textAlign:'left' }}
-                onMouseEnter={e => e.currentTarget.style.background='#f5f5f5'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'#f5f5f5', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Ico.Plane s={15} /></div>
-                <span style={{ fontSize:'14px', color:'#222', fontWeight:500 }}>{c}</span>
-              </button>
-            ))}
+            <AirportAutocomplete
+              value={tab === 'hotels' ? hotelDest : from}
+              onSelect={val => { (tab === 'hotels' ? setHotelDest : setFrom)(val); closeSec(); }}
+            />
           </DropShell>
         )}
       </div>
@@ -656,7 +760,7 @@ export default function PlanTripPage() {
         {tab === 'flights' ? (<>
           <div style={{ marginBottom:'10px' }}>
             <div style={{ fontSize:'11px', fontWeight:700, color:'#717171', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'5px' }}>From</div>
-            <input type="text" value={from} onChange={e => setFrom(e.target.value)} placeholder="City or airport" style={{ width:'100%', height:'46px', border:'1.5px solid #e2e2e2', borderRadius:'10px', padding:'0 14px', fontSize:'14px', fontFamily:'inherit', color:'#222', background:'#fff', outline:'none', boxSizing:'border-box' }} onFocus={e => e.target.style.borderColor='#222'} onBlur={e => e.target.style.borderColor='#e2e2e2'} />
+            <AirportAutocomplete value={from} onSelect={setFrom} placeholder="City or airport" compact />
           </div>
           <div style={{ marginBottom:'10px' }}>
             <div style={{ fontSize:'11px', fontWeight:700, color:'#717171', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:'5px' }}>To</div>

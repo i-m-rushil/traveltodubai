@@ -58,6 +58,22 @@ export function airlineLogo(iata) {
   return `https://pics.avs.io/96/32/${iata}.png`;
 }
 
+// ── Airport / city autocomplete (Travelpayouts public API, no token needed) ──
+
+export async function searchAirports(term) {
+  if (!term || term.length < 2) return [];
+  try {
+    const res = await fetch(
+      `https://autocomplete.travelpayouts.com/places2?locale=en&types[]=airport&types[]=city&term=${encodeURIComponent(term)}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data.slice(0, 8) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── Search (via Edge Function) ──
 
 async function invokeTravelSearch(body) {
