@@ -1,38 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { currencyRates as CURRENCY_RATES, prayerTimes, fetchPrayerTimes, formatRate, DUBAI_LOCATION } from '../data/uaeInfo';
 
-const CURRENCY_RATES = [
-  { code: 'USD', flag: '🇺🇸', name: 'US Dollar',          rate: 0.2723 },
-  { code: 'EUR', flag: '🇪🇺', name: 'Euro',               rate: 0.2498 },
-  { code: 'GBP', flag: '🇬🇧', name: 'British Pound',      rate: 0.2144 },
-  { code: 'INR', flag: '🇮🇳', name: 'Indian Rupee',       rate: 22.71  },
-  { code: 'PKR', flag: '🇵🇰', name: 'Pakistani Rupee',    rate: 75.85  },
-  { code: 'SAR', flag: '🇸🇦', name: 'Saudi Riyal',        rate: 1.0213 },
-  { code: 'EGP', flag: '🇪🇬', name: 'Egyptian Pound',     rate: 13.18  },
-  { code: 'PHP', flag: '🇵🇭', name: 'Philippine Peso',    rate: 15.62  },
-  { code: 'BDT', flag: '🇧🇩', name: 'Bangladeshi Taka',   rate: 29.84  },
-  { code: 'KWD', flag: '🇰🇼', name: 'Kuwaiti Dinar',      rate: 0.0838 },
-  { code: 'OMR', flag: '🇴🇲', name: 'Omani Rial',         rate: 0.1049 },
-  { code: 'QAR', flag: '🇶🇦', name: 'Qatari Riyal',       rate: 0.9916 },
-  { code: 'BHD', flag: '🇧🇭', name: 'Bahraini Dinar',     rate: 0.1025 },
-  { code: 'CNY', flag: '🇨🇳', name: 'Chinese Yuan',       rate: 1.971  },
-  { code: 'JPY', flag: '🇯🇵', name: 'Japanese Yen',       rate: 40.12  },
-  { code: 'CAD', flag: '🇨🇦', name: 'Canadian Dollar',    rate: 0.3710 },
-  { code: 'AUD', flag: '🇦🇺', name: 'Australian Dollar',  rate: 0.4160 },
-  { code: 'CHF', flag: '🇨🇭', name: 'Swiss Franc',        rate: 0.2451 },
-  { code: 'SGD', flag: '🇸🇬', name: 'Singapore Dollar',   rate: 0.3645 },
-  { code: 'MYR', flag: '🇲🇾', name: 'Malaysian Ringgit',  rate: 1.2720 },
-];
-
-const PRAYER_TIMES = [
-  { name: 'Fajr',    time: '4:07 AM',  icon: <FajrIcon /> },
-  { name: 'Sunrise', time: '5:42 AM',  icon: <SunriseIcon /> },
-  { name: 'Dhuhr',   time: '12:28 PM', icon: <DhuhrIcon /> },
-  { name: 'Asr',     time: '3:50 PM',  icon: <AsrIcon /> },
-  { name: 'Maghrib', time: '7:13 PM',  icon: <MaghribIcon /> },
-  { name: 'Isha',    time: '8:43 PM',  icon: <IshaIcon /> },
-];
+// Prayer icons live here, aligned by index to the shared prayerTimes array.
+const PRAYER_ICONS = [<FajrIcon />, <SunriseIcon />, <DhuhrIcon />, <AsrIcon />, <MaghribIcon />, <IshaIcon />];
+const withIcons = (times) => times.map((p, i) => ({ ...p, icon: PRAYER_ICONS[i] }));
+const PRAYER_TIMES = withIcons(prayerTimes); // static fallback
 
 /* ── Prayer time SVG icons — clean minimal strokes ── */
 
@@ -191,7 +165,7 @@ function CurrencyWidget() {
                   </div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-ui)', fontWeight: 800, fontSize: 12, color: 'var(--brand)' }}>
-                  {rate < 1 ? rate.toFixed(4) : rate < 10 ? rate.toFixed(2) : rate.toFixed(1)}
+                  {formatRate(rate)}
                 </div>
               </div>
             ))}
@@ -211,6 +185,8 @@ function CurrencyWidget() {
 /* ── Prayer times widget (click-toggle) ── */
 function PrayerTimesWidget() {
   const [open, setOpen] = useState(false);
+  const [times, setTimes] = useState(PRAYER_TIMES);
+  const fetched = useRef(false);
   const ref = useRef(null);
   const today = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -219,6 +195,15 @@ function PrayerTimesWidget() {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Fetch live times the first time the widget is opened (falls back to static).
+  useEffect(() => {
+    if (!open || fetched.current) return;
+    fetched.current = true;
+    fetchPrayerTimes(DUBAI_LOCATION)
+      .then(t => setTimes(withIcons(t)))
+      .catch(() => {});
   }, [open]);
 
   return (
@@ -256,7 +241,7 @@ function PrayerTimesWidget() {
           </div>
 
           <div style={{ padding: '6px 0' }}>
-            {PRAYER_TIMES.map(({ name, time, icon }) => (
+            {times.map(({ name, time, icon }) => (
               <div key={name} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '9px 16px', transition: 'background 0.12s', cursor: 'default',
@@ -319,11 +304,13 @@ export default function TopBar() {
         {/* Left: Social icons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {[
-            { label: 'Instagram', icon: <IgIcon /> },
-            { label: 'TikTok',    icon: <TkIcon /> },
-            { label: 'YouTube',   icon: <YtIcon /> },
-          ].map(({ label, icon }) => (
-            <a key={label} href="#" aria-label={label} style={{ color: '#fff', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
+            { label: 'Facebook',  href: 'https://www.facebook.com/traveltodubai.ae/',          icon: <FbIcon /> },
+            { label: 'Instagram', href: 'https://www.instagram.com/traveltodubai.ae',          icon: <IgIcon /> },
+            { label: 'X',         href: 'https://x.com/traveltodubaiae',                        icon: <XIcon /> },
+            { label: 'YouTube',   href: 'https://www.youtube.com/channel/UCtrgygF3CQjZ93QQJeDtH4g', icon: <YtIcon /> },
+            { label: 'TikTok',    href: 'https://www.tiktok.com/@traveltodubai.ae',             icon: <TkIcon /> },
+          ].map(({ label, href, icon }) => (
+            <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} style={{ color: '#fff', display: 'flex', alignItems: 'center', transition: 'color 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.color = 'var(--gold)'}
               onMouseLeave={e => e.currentTarget.style.color = '#fff'}
             >
@@ -404,6 +391,8 @@ function MosqueIcon()   {
   );
 }
 function PlaneIcon()    { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21 4 19 4c-2 0-2.5 0-3.5 1L12 9 3.8 6.2A.5.5 0 0 0 3 6.5l1.7 8.7c.2.9.8 1.7 1.7 2l4.6 1.3 1.4 1.4c.2.2.5.3.8.3h.7c.4 0 .8-.3.9-.7l.7-2.1z"/></svg>; }
+function FbIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99A10 10 0 0 0 22 12z"/></svg>; }
 function IgIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>; }
+function XIcon()        { return <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>; }
 function TkIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.79 1.52V6.76a4.85 4.85 0 0 1-1.02-.07z"/></svg>; }
 function YtIcon()       { return <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="#1d252c"/></svg>; }

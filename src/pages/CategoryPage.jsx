@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { CATEGORIES, POPULAR_TAGS, CATEGORY_DESCRIPTIONS } from '../data/articles';
 import { navLinks } from '../data/mockData';
+import { DUBAI_AREAS } from '../data/areas';
 import { getPublishedArticles, getCategoryIdBySlug, getArticleCount, getMostViewedArticles } from '../lib/supabase';
 import { normalizeArticles } from '../lib/normalize';
 
@@ -176,14 +177,22 @@ function ArticleCard({ article, hovered, onHover }) {
   );
 }
 
-/* ─── Sidebar: Popular ─── */
-function PopularSidebar() {
+/* ─── Sidebar: Popular (scoped to the active category) ─── */
+function PopularSidebar({ categorySlug }) {
   const [hovId, setHovId] = useState(null);
   const [popular, setPopular] = useState([]);
 
   useEffect(() => {
-    getMostViewedArticles(5).then(({ data }) => setPopular(normalizeArticles(data)));
-  }, []);
+    let cancelled = false;
+    (async () => {
+      const categoryId = categorySlug && categorySlug !== 'all'
+        ? await getCategoryIdBySlug(categorySlug)
+        : null;
+      const { data } = await getMostViewedArticles(5, { categoryId });
+      if (!cancelled) setPopular(normalizeArticles(data));
+    })();
+    return () => { cancelled = true; };
+  }, [categorySlug]);
 
   return (
     <div style={{ background: '#fff', borderRadius: 10, padding: '24px', marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
@@ -254,6 +263,54 @@ function TagCloud() {
             {tag}
           </span>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Sidebar: Filter by Dubai area ─── */
+function AreaFilter({ selected, onSelect }) {
+  const [hov, setHov] = useState(null);
+  return (
+    <div style={{ background: '#fff', borderRadius: 10, padding: '24px', marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
+      <SidebarHeading accent="var(--brand)">Filter by Area</SidebarHeading>
+
+      {selected && (
+        <button
+          onClick={() => onSelect(null)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14,
+            padding: '5px 12px', borderRadius: 20, cursor: 'pointer',
+            border: '1px solid var(--brand)', background: 'var(--brand)', color: '#fff',
+            fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
+          }}
+        >
+          {selected} <span style={{ fontSize: 13, lineHeight: 1 }}>✕</span>
+        </button>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {DUBAI_AREAS.map(a => {
+          const active = a === selected;
+          return (
+            <button
+              key={a}
+              onClick={() => onSelect(active ? null : a)}
+              onMouseEnter={() => setHov(a)}
+              onMouseLeave={() => setHov(null)}
+              style={{
+                padding: '5px 13px', borderRadius: 20, cursor: 'pointer',
+                border: `1px solid ${active || hov === a ? 'var(--brand)' : 'var(--border)'}`,
+                background: active ? 'var(--brand)' : hov === a ? 'var(--brand-glow)' : 'transparent',
+                color: active ? '#fff' : hov === a ? 'var(--brand)' : 'var(--text-mid)',
+                fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 500,
+                transition: 'all 0.16s',
+              }}
+            >
+              {a}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -510,6 +567,10 @@ export default function CategoryPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading]       = useState(true);
   const [hoveredId, setHoveredId]   = useState(null);
+  const [area, setArea]             = useState(null);   // selected Dubai area filter
+
+  // Clear the area filter whenever the category changes.
+  useEffect(() => { setArea(null); }, [activeSlug]);
 
   useEffect(() => {
     setArticles([]);
@@ -518,19 +579,19 @@ export default function CategoryPage() {
     async function load() {
       const catId = activeSlug !== 'all' ? await getCategoryIdBySlug(activeSlug) : null;
       const [count, { data }] = await Promise.all([
-        getArticleCount(catId),
-        getPublishedArticles({ categoryId: catId, limit: PAGE_SIZE }),
+        getArticleCount(catId, { area }),
+        getPublishedArticles({ categoryId: catId, area, limit: PAGE_SIZE }),
       ]);
       setTotalCount(count);
       setArticles(normalizeArticles(data));
       setLoading(false);
     }
     load();
-  }, [activeSlug]);
+  }, [activeSlug, area]);
 
   const loadMore = async () => {
     const catId = activeSlug !== 'all' ? await getCategoryIdBySlug(activeSlug) : null;
-    const { data } = await getPublishedArticles({ categoryId: catId, limit: PAGE_SIZE, offset: articles.length });
+    const { data } = await getPublishedArticles({ categoryId: catId, area, limit: PAGE_SIZE, offset: articles.length });
     setArticles(prev => [...prev, ...normalizeArticles(data)]);
   };
 
@@ -696,13 +757,15 @@ export default function CategoryPage() {
         {/* Sidebar */}
         {!isMobile ? (
           <aside style={{ position: 'sticky', top: 88 }}>
-            <PopularSidebar />
+            <AreaFilter selected={area} onSelect={setArea} />
+            <PopularSidebar categorySlug={activeSlug} />
             <TagCloud />
             <NewsletterBox />
           </aside>
         ) : (
           <div style={{ marginTop: 44 }}>
-            <PopularSidebar />
+            <AreaFilter selected={area} onSelect={setArea} />
+            <PopularSidebar categorySlug={activeSlug} />
             <TagCloud />
             <NewsletterBox />
           </div>

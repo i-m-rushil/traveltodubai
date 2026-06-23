@@ -38,7 +38,7 @@ export function articlesQuery() {
     `);
 }
 
-export async function getPublishedArticles({ categoryId, limit = 12, offset = 0 } = {}) {
+export async function getPublishedArticles({ categoryId, emirate, area, limit = 12, offset = 0 } = {}) {
   let q = articlesQuery()
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -46,6 +46,12 @@ export async function getPublishedArticles({ categoryId, limit = 12, offset = 0 
 
   if (categoryId) {
     q = q.eq('category_id', categoryId);
+  }
+  if (emirate) {
+    q = q.eq('emirate', emirate);
+  }
+  if (area) {
+    q = q.eq('area', area);
   }
   return await q;
 }
@@ -67,18 +73,19 @@ export async function getAllCategories() {
     .order('label');
 }
 
-export async function getArticleCount(categoryId) {
+export async function getArticleCount(categoryId, { area } = {}) {
   let q = supabase
     .from('articles')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'published');
   if (categoryId) q = q.eq('category_id', categoryId);
+  if (area) q = q.eq('area', area);
   const { count } = await q;
   return count || 0;
 }
 
-export async function getMostViewedArticles(limit = 5) {
-  return supabase
+export async function getMostViewedArticles(limit = 5, { categoryId, emirate } = {}) {
+  let q = supabase
     .from('articles')
     .select(`
       id, title, slug, views, published_at,
@@ -88,6 +95,9 @@ export async function getMostViewedArticles(limit = 5) {
     .eq('status', 'published')
     .order('views', { ascending: false })
     .limit(limit);
+  if (categoryId) q = q.eq('category_id', categoryId);
+  if (emirate) q = q.eq('emirate', emirate);
+  return q;
 }
 
 export async function getRelatedArticles(categoryId, excludeId, limit = 3) {
@@ -366,7 +376,7 @@ function estimateReadTime(html) {
   return Math.max(1, Math.round(words / 200));
 }
 
-export async function saveArticle({ id, title, slug, excerpt, content, featuredImage, categoryId, status, metaTitle, metaDescription, seoScore, isFeatured, tagLabel }) {
+export async function saveArticle({ id, title, slug, excerpt, content, featuredImage, categoryId, emirate, area, status, metaTitle, metaDescription, seoScore, isFeatured, tagLabel }) {
   const session = await getSession();
   if (!session) return { error: new Error('Not signed in — please log in again.') };
 
@@ -377,6 +387,8 @@ export async function saveArticle({ id, title, slug, excerpt, content, featuredI
     content:          content || '',
     featured_image:   featuredImage || null,
     category_id:      categoryId || null,
+    emirate:          emirate || null,
+    area:             area || null,
     status:           status || 'draft',
     meta_title:       metaTitle || null,
     meta_description: metaDescription || null,

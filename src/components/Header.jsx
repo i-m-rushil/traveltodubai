@@ -79,7 +79,7 @@ export default function Header() {
                   onMouseEnter={() => openMenu(link.label)}
                   onMouseLeave={scheduleClose}
                 >
-                  <Link to={`/category/${link.slug}`} onClick={() => setActiveMenu(null)} style={{
+                  <Link to={link.path || `/category/${link.slug}`} onClick={() => setActiveMenu(null)} style={{
                     fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: '13px',
                     letterSpacing: '0.3px',
                     color: activeMenu === link.label ? 'var(--brand)' : 'var(--text-dark)',
@@ -90,7 +90,7 @@ export default function Header() {
                     transition: 'all 0.2s', whiteSpace: 'nowrap', textDecoration: 'none',
                   }}>
                     {link.label}
-                    <ChevDown active={activeMenu === link.label} />
+                    {link.sub.length > 0 && <ChevDown active={activeMenu === link.label} />}
                   </Link>
                 </div>
               ))}
@@ -198,7 +198,7 @@ export default function Header() {
                   </span>
                 </div>
                 <Link
-                  to={`/category/${activeLink.slug}`}
+                  to={activeLink.path || `/category/${activeLink.slug}`}
                   onClick={() => setActiveMenu(null)}
                   style={{
                     fontFamily: 'var(--font-ui)', fontSize: 12, fontWeight: 600,
@@ -225,7 +225,7 @@ export default function Header() {
                   <MegaItem
                     key={item.label}
                     item={item}
-                    to={`/category/${activeLink.slug}`}
+                    to={item.path || activeLink.path || `/category/${activeLink.slug}`}
                     onClose={() => setActiveMenu(null)}
                   />
                 ))}
@@ -236,7 +236,7 @@ export default function Header() {
       </header>
 
       {/* Mega menu backdrop */}
-      {!isMobile && activeMenu && (
+      {!isMobile && activeLink && activeLink.sub.length > 0 && (
         <div
           onClick={() => setActiveMenu(null)}
           style={{
@@ -398,7 +398,7 @@ function MobileNavItem({ link, onClose }) {
   if (!hasSub) {
     return (
       <div style={{ borderBottom: '1px solid var(--border)' }}>
-        <Link to={`/category/${link.slug}`} onClick={onClose} style={{
+        <Link to={link.path || `/category/${link.slug}`} onClick={onClose} style={{
           display: 'flex', alignItems: 'center',
           padding: '14px 20px', fontFamily: 'var(--font-ui)', fontWeight: 600,
           fontSize: '14px', color: 'var(--brand)', textDecoration: 'none',
@@ -425,7 +425,7 @@ function MobileNavItem({ link, onClose }) {
       {open && (
         <div style={{ background: 'var(--sand)' }}>
           {link.sub.map((item, i) => (
-            <Link key={item.label} to={`/category/${link.slug}`} onClick={onClose} style={{
+            <Link key={item.label} to={item.path || link.path || `/category/${link.slug}`} onClick={onClose} style={{
               display: 'flex', alignItems: 'center', gap: '10px',
               padding: '11px 20px 11px 32px',
               fontFamily: 'var(--font-ui)', fontSize: '13px', color: 'var(--text-mid)',

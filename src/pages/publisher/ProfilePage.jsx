@@ -382,7 +382,16 @@ export default function ProfilePage() {
                   ))}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-ui)', fontSize: 12 }}>
                     <span style={{ color: 'var(--text-light)' }}>Status</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)', fontSize: 11, fontWeight: 600 }}>Active</span>
+                    {(() => {
+                      const s = {
+                        active:    { bg: 'rgba(16,185,129,0.1)', fg: '#059669', bd: 'rgba(16,185,129,0.2)', label: 'Active' },
+                        suspended: { bg: 'rgba(239,68,68,0.1)',  fg: '#dc2626', bd: 'rgba(239,68,68,0.2)',  label: 'Suspended' },
+                        pending:   { bg: 'rgba(245,158,11,0.1)', fg: '#d97706', bd: 'rgba(245,158,11,0.2)', label: 'Pending' },
+                      }[profile.status] || { bg: 'rgba(148,163,184,0.12)', fg: '#64748b', bd: 'rgba(148,163,184,0.25)', label: profile.status || '—' }
+                      return (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 20, background: s.bg, color: s.fg, border: `1px solid ${s.bd}`, fontSize: 11, fontWeight: 600 }}>{s.label}</span>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>

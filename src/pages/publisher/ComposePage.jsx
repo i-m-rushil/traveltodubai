@@ -5,6 +5,8 @@ import {
   getAllCategories, getArticleForEdit, saveArticle, setArticleTags,
   uploadImage, logActivity,
 } from '../../lib/supabase'
+import { emirates } from '../../data/mockData'
+import { DUBAI_AREAS } from '../../data/areas'
 
 function calcScore(p) {
   const titleLen = p.title.length
@@ -77,7 +79,7 @@ export default function ComposePage() {
   const auth = JSON.parse(localStorage.getItem('ttd_auth') || '{}')
 
   const [post, setPost] = useState({
-    title: '', slug: '', categoryId: '', tags: '', excerpt: '',
+    title: '', slug: '', categoryId: '', emirate: '', area: '', tags: '', excerpt: '',
     featuredImage: '', content: '', status: 'draft', metaDesc: ''
   })
   const [articleId, setArticleId] = useState(id || null)
@@ -123,6 +125,8 @@ export default function ComposePage() {
         title: data.title || '',
         slug: data.slug || '',
         categoryId: data.category_id || '',
+        emirate: data.emirate || '',
+        area: data.area || '',
         tags: (data.tags || []).map(t => t.tag?.name).filter(Boolean).join(', '),
         excerpt: data.excerpt || '',
         featuredImage: data.featured_image || '',
@@ -178,6 +182,8 @@ export default function ComposePage() {
       content: post.content,
       featuredImage: post.featuredImage,
       categoryId: post.categoryId || null,
+      emirate: post.emirate || null,
+      area: post.area || null,
       status,
       metaDescription: post.metaDesc,
       seoScore: aiScore.overall,
@@ -611,6 +617,30 @@ export default function ComposePage() {
                 >
                   {categories.map(c => (
                     <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+
+                <label style={labelStyle}>Emirate</label>
+                <select
+                  value={post.emirate}
+                  onChange={e => updatePost('emirate', e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', fontFamily: 'var(--font-ui)', fontSize: 13, outline: 'none', marginBottom: 16, color: 'var(--text-dark)', background: '#fff' }}
+                >
+                  <option value="">Dubai (main site)</option>
+                  {emirates.map(em => (
+                    <option key={em.slug} value={em.label}>{em.label}</option>
+                  ))}
+                </select>
+
+                <label style={labelStyle}>Area / Location</label>
+                <select
+                  value={post.area}
+                  onChange={e => updatePost('area', e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', fontFamily: 'var(--font-ui)', fontSize: 13, outline: 'none', marginBottom: 16, color: 'var(--text-dark)', background: '#fff' }}
+                >
+                  <option value="">No specific area</option>
+                  {DUBAI_AREAS.map(a => (
+                    <option key={a} value={a}>{a}</option>
                   ))}
                 </select>
 

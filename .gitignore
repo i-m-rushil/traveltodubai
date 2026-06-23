@@ -26,6 +26,9 @@ dist-ssr
 .vercel
 .env*
 
+# Claude Code local settings
+.claude/
+
 # WordPress export (238MB) and Supabase CLI artifacts
 *.xml
 supabase/.temp/

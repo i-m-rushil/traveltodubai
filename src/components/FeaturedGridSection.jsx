@@ -40,7 +40,7 @@ export default function FeaturedGridSection() {
                 fontFamily: 'var(--font-headline)', fontWeight: 700, fontSize: '22px',
                 color: 'var(--text-dark)', margin: 0, letterSpacing: '-0.2px',
               }}>
-                Editor's Picks
+                Things to know
               </h2>
             </div>
           </div>
@@ -62,7 +62,7 @@ export default function FeaturedGridSection() {
         <div style={{
           display: 'grid',
           gridTemplateColumns: isMobile ? '1fr' : '1.08fr 1fr',
-          gridTemplateRows: isMobile ? 'auto' : '520px',
+          gridTemplateRows: isMobile ? 'auto' : '620px',
           gap: '4px',
           borderRadius: '12px',
           overflow: 'hidden',
@@ -73,12 +73,12 @@ export default function FeaturedGridSection() {
             <BigCard article={articles[0]} />
           </div>
 
-          {/* Right — 1 top + 2 bottom */}
-          <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: '4px' }}>
+          {/* Right — 1 top + 2 bottom (bottom row gets a bit more height) */}
+          <div style={{ display: 'grid', gridTemplateRows: isMobile ? 'auto' : '1fr 1.15fr', gap: '4px' }}>
             <div style={{ height: isMobile ? '220px' : '100%' }}>
               <SmallCard article={articles[1]} wide />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', height: isMobile ? '180px' : '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', height: isMobile ? '220px' : '100%' }}>
               <SmallCard article={articles[2]} />
               <SmallCard article={articles[3]} />
             </div>

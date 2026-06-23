@@ -3,6 +3,15 @@ import { listAdvertisers, saveAdvertiser, deleteAdvertiser, logActivity } from '
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 const PKG_COLOR = { Premium: '#C9A050', Standard: '#3b82f6', Basic: '#64748b' }
+
+// Mirrors the advertiser_status enum in the database.
+export const STATUS_META = {
+  active:   { label: 'Active',   color: '#10b981', dot: '#10b981' },
+  inactive: { label: 'Inactive', color: '#94a3b8', dot: '#cbd5e1' },
+  paused:   { label: 'Paused',   color: '#d97706', dot: '#f59e0b' },
+  expired:  { label: 'Expired',  color: '#dc2626', dot: '#ef4444' },
+}
+const statusMeta = (s) => STATUS_META[s] || STATUS_META.inactive
 const BRAND_COLORS = [
   '#0066CC', '#CC0000', '#00897B', '#E65100',
   '#7B1FA2', '#455A64', '#C62828', '#00838F',
@@ -450,6 +459,8 @@ function AdvertiserForm({ initial, onSave, onClose }) {
                   style={{ ...inputStyle(false), background: '#fff', cursor: 'pointer' }}>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
+                  <option value="paused">Paused</option>
+                  <option value="expired">Expired</option>
                 </select>
               </div>
               <div>
@@ -590,7 +601,7 @@ function AdvertiserCard({ adv, onClick }) {
           <div style={{ fontWeight: 700, fontSize: 14, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adv.company}</div>
           <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{adv.industry}</div>
         </div>
-        <StatusDot active={adv.status === 'active'} />
+        <StatusDot status={adv.status} />
       </div>
       <div style={{ fontSize: 12, color: '#64748b' }}>
         <div style={{ marginBottom: 2 }}><span style={{ color: '#94a3b8' }}>Contact: </span>{adv.contact}</div>
@@ -650,9 +661,9 @@ export function AdvertiserModal({ adv, onClose, onImageClick, isAdmin, onEdit, o
               <span style={{ padding: '2px 10px', borderRadius: 20, background: (PKG_COLOR[adv.package] || '#888') + '30', color: PKG_COLOR[adv.package] || '#888', fontSize: 11, fontWeight: 700 }}>{adv.package}</span>
               <span style={{
                 padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                background: adv.status === 'active' ? 'rgba(16,185,129,0.2)' : 'rgba(100,116,139,0.2)',
-                color: adv.status === 'active' ? '#10b981' : '#94a3b8',
-              }}>{adv.status === 'active' ? 'Active' : 'Inactive'}</span>
+                background: statusMeta(adv.status).color + '33',
+                color: statusMeta(adv.status).color,
+              }}>{statusMeta(adv.status).label}</span>
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -783,11 +794,12 @@ function DetailRow({ icon, label, value }) {
 function ErrMsg({ children }) {
   return <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{children}</div>
 }
-function StatusDot({ active }) {
+function StatusDot({ status }) {
+  const m = statusMeta(status)
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: active ? '#10b981' : '#94a3b8', flexShrink: 0 }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: active ? '#10b981' : '#cbd5e1', display: 'inline-block' }} />
-      {active ? 'Active' : 'Inactive'}
+    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: m.color, flexShrink: 0 }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: m.dot, display: 'inline-block' }} />
+      {m.label}
     </span>
   )
 }

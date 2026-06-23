@@ -5,9 +5,9 @@ import Header from './components/Header';
 import HeroSlider from './components/HeroSlider';
 import BreakingNews from './components/BreakingNews';
 import FeaturedGridSection from './components/FeaturedGridSection';
-import ExperiencesSection from './components/ExperiencesSection';
 import RecentSection from './components/RecentSection';
-import AnalysisSection from './components/AnalysisSection';
+import PlanTripPromo from './components/PlanTripPromo';
+import OtherEmiratesSection from './components/OtherEmiratesSection';
 import AdBanner from './components/AdBanner';
 import NewsletterPopup from './components/NewsletterPopup';
 import { getPublishedArticles, getCategoryIdBySlug } from './lib/supabase';
@@ -15,6 +15,10 @@ import { normalizeArticles } from './lib/normalize';
 import Footer from './components/Footer';
 import CookieBanner from './components/CookieBanner';
 import CategoryPage from './pages/CategoryPage';
+import EmiratePage from './pages/EmiratePage';
+import OtherEmiratesPage from './pages/OtherEmiratesPage';
+import PrayerTimesPage from './pages/PrayerTimesPage';
+import CurrencyPage from './pages/CurrencyPage';
 import ArticlePage from './pages/ArticlePage';
 import AboutPage from './pages/AboutPage';
 import FAQPage from './pages/FAQPage';
@@ -47,21 +51,23 @@ function ScrollToTop() {
 }
 
 function HomePage() {
-  const [lifestyle, setLifestyle]     = useState([]);
+  const [latest, setLatest]           = useState([]);
+  const [stay, setStay]               = useState([]);
   const [food, setFood]               = useState([]);
   const [experiences, setExperiences] = useState([]);
-  const [travel, setTravel]           = useState([]);
+  const [insights, setInsights]       = useState([]);
 
   useEffect(() => {
     const load = async (slug, setter) => {
-      const catId = await getCategoryIdBySlug(slug);
+      const catId = slug ? await getCategoryIdBySlug(slug) : null;
       const { data } = await getPublishedArticles({ categoryId: catId, limit: 6 });
       setter(normalizeArticles(data));
     };
-    load('lifestyle',   setLifestyle);
+    load(null,          setLatest);       // newest across all categories
+    load('stay',        setStay);
     load('eat-drink',   setFood);
     load('experiences', setExperiences);
-    load('travel',      setTravel);
+    load('travel',      setInsights);
   }, []);
 
   return (
@@ -69,17 +75,25 @@ function HomePage() {
       <HeroSlider />
       <BreakingNews />
       <FeaturedGridSection />
-      <ExperiencesSection />
+      {/* 1. Latest */}
+      <RecentSection title="Latest"          articles={latest}      viewAllLink="/category/all"         categorySlug="all" />
       <AdBanner />
-      <RecentSection title="Lifestyle & Culture"       articles={lifestyle}    viewAllLink="/category/lifestyle" />
+      {/* 2. Plan your trip */}
+      <PlanTripPromo />
+      {/* 3. Stay */}
+      <RecentSection title="Stay"            articles={stay}        viewAllLink="/category/stay"        categorySlug="stay" />
       <AdBanner />
-      <RecentSection title="Food & Drinks"             articles={food}         viewAllLink="/category/eat-drink" />
+      {/* 4. Food & Drink */}
+      <RecentSection title="Food & Drink"    articles={food}        viewAllLink="/category/eat-drink"   categorySlug="eat-drink" />
       <AdBanner />
-      <RecentSection title="Things To Do in Dubai"     articles={experiences}  viewAllLink="/category/experiences" />
+      {/* 5. Things to do */}
+      <RecentSection title="Things to do"    articles={experiences} viewAllLink="/category/experiences" categorySlug="experiences" />
       <AdBanner />
-      <RecentSection title="Latest News from Dubai"    articles={travel}       viewAllLink="/category/travel" />
+      {/* 6. Insights */}
+      <RecentSection title="Insights"        articles={insights}    viewAllLink="/category/travel"      categorySlug="travel" />
       <AdBanner />
-      <AnalysisSection />
+      {/* 7. Other Emirates */}
+      <OtherEmiratesSection />
       <AdBanner />
     </>
   );
@@ -94,6 +108,10 @@ function SiteLayout() {
         <Routes>
           <Route path="/"                  element={<HomePage />} />
           <Route path="/category/:slug"    element={<CategoryPage />} />
+          <Route path="/other-emirates"    element={<OtherEmiratesPage />} />
+          <Route path="/emirate/:slug"     element={<EmiratePage />} />
+          <Route path="/prayer-times"      element={<PrayerTimesPage />} />
+          <Route path="/currency"          element={<CurrencyPage />} />
           <Route path="/article/:slug"     element={<ArticlePage />} />
           <Route path="/about"             element={<AboutPage />} />
           <Route path="/faq"               element={<FAQPage />} />

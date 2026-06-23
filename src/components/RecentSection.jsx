@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getMostViewedArticles } from '../lib/supabase';
+import { getMostViewedArticles, getCategoryIdBySlug } from '../lib/supabase';
 import { normalizeArticles } from '../lib/normalize';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-export default function RecentSection({ title = 'Latest from Dubai', articles = [], viewAllLink = '/category/all' }) {
+export default function RecentSection({ title = 'Latest from Dubai', articles = [], viewAllLink = '/category/all', categorySlug = null, emirate = null }) {
   const isMobile = useIsMobile();
   return (
     <section style={{ background: 'var(--sand)', padding: isMobile ? '40px 0' : '64px 0' }}>
@@ -64,7 +64,7 @@ export default function RecentSection({ title = 'Latest from Dubai', articles = 
           </div>
 
           {/* Sidebar — desktop only */}
-          {!isMobile && <Sidebar />}
+          {!isMobile && <Sidebar categorySlug={categorySlug} emirate={emirate} />}
         </div>
       </div>
     </section>
@@ -187,14 +187,20 @@ function ArticleCard({ article, featured }) {
   );
 }
 
-function Sidebar() {
+function Sidebar({ categorySlug = null, emirate = null }) {
   const [popular, setPopular] = useState([]);
 
   useEffect(() => {
-    getMostViewedArticles(5).then(({ data }) => {
-      setPopular(normalizeArticles(data));
-    });
-  }, []);
+    let cancelled = false;
+    (async () => {
+      const categoryId = categorySlug && categorySlug !== 'all'
+        ? await getCategoryIdBySlug(categorySlug)
+        : null;
+      const { data } = await getMostViewedArticles(5, { categoryId, emirate });
+      if (!cancelled) setPopular(normalizeArticles(data));
+    })();
+    return () => { cancelled = true; };
+  }, [categorySlug, emirate]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
