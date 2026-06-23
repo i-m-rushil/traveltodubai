@@ -41,7 +41,7 @@ function FlightCard({ offer, onBook, originCode }) {
 
       {/* Airline */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', width: '88px', flexShrink: 0 }}>
-        <img src={airlineLogo(offer.airlineIata)} alt={offer.airlineName}
+        <img src={airlineLogo(offer.airlineIata)} alt={offer.airlineName} loading="lazy" decoding="async"
           style={{ width: '80px', height: '26px', objectFit: 'contain' }}
           onError={(e) => { e.currentTarget.style.display = 'none'; }} />
         <div style={{ fontSize: '11px', color: '#555', fontWeight: 600, textAlign: 'center', lineHeight: 1.3 }}>{offer.airlineName}</div>
@@ -113,7 +113,7 @@ function HotelCard({ offer, onBook }) {
   return (
     <div className="ttd-result-card" style={{ background: '#fff', border: '1px solid #ebebeb', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: '150px', background: '#f0f0f0' }}>
-        <img src={offer.photoUrl} alt={offer.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        <img src={offer.photoUrl} alt={offer.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           onError={(e) => { e.currentTarget.style.display = 'none'; }} />
       </div>
       <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', flex: 1 }}>

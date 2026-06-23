@@ -66,7 +66,7 @@ function EmirateCard({ emirate }) {
         textDecoration: 'none', background: '#e8ecf0',
       }}
     >
-      <img src={emirate.img} alt={emirate.label} loading="lazy"
+      <img src={emirate.img} alt={emirate.label} loading="lazy" decoding="async"
         style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%',
           objectFit: 'cover', transform: hovered ? 'scale(1.06)' : 'scale(1)',

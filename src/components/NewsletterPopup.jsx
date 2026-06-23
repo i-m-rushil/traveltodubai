@@ -132,6 +132,8 @@ export default function NewsletterPopup() {
             <img
               src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&q=85&fit=crop"
               alt="Dubai skyline"
+              loading="lazy"
+              decoding="async"
               style={{
                 width: '100%', height: '100%',
                 objectFit: 'cover',

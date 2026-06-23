@@ -319,7 +319,7 @@ function DestCard({ d }) {
     <div className="dest-card" style={{ flexShrink:0, width:'280px', borderRadius:'20px', overflow:'hidden', cursor:'pointer', position:'relative', height:'340px', boxShadow:'0 2px 16px rgba(0,0,0,0.12)', transition:'transform 0.22s, box-shadow 0.22s' }}
       onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,0.2)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 2px 16px rgba(0,0,0,0.12)'; }}>
-      <img src={d.img} alt={d.name} style={{ width:'100%', height:'100%', objectFit:'cover', position:'absolute', inset:0 }} loading="lazy" />
+      <img src={d.img} alt={d.name} style={{ width:'100%', height:'100%', objectFit:'cover', position:'absolute', inset:0 }} loading="lazy" decoding="async" />
       <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.22) 55%, transparent 100%)' }} />
       <div style={{ position:'absolute', top:'14px', left:'14px', background:'rgba(255,255,255,0.18)', backdropFilter:'blur(10px)', WebkitBackdropFilter:'blur(10px)', borderRadius:'20px', padding:'4px 12px', border:'1px solid rgba(255,255,255,0.25)' }}>
         <span style={{ fontSize:'11px', fontWeight:700, color:'#fff', letterSpacing:'0.4px' }}>{d.tag}</span>
@@ -382,7 +382,7 @@ function DealCard({ deal, onClick }) {
   return (
     <div className="deal-card" style={{ background:'#fff', borderRadius:'18px', overflow:'hidden', boxShadow:'0 1px 3px rgba(0,0,0,0.07), 0 6px 16px rgba(0,0,0,0.05)', cursor:'pointer' }}>
       <div style={{ height:'140px', background:'#111', padding:'18px', display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
-        <img src={deal.img} alt={deal.title} loading="lazy" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+        <img src={deal.img} alt={deal.title} loading="lazy" decoding="async" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.3) 100%)' }} />
         <div style={{ position:'relative', display:'flex', alignItems:'center', gap:'8px' }}>
           <span style={{ background: deal.bc, color:'#fff', fontWeight:800, fontSize:'9px', letterSpacing:'1.2px', textTransform:'uppercase', padding:'4px 10px', borderRadius:'4px' }}>{deal.badge}</span>
@@ -994,7 +994,7 @@ export default function PlanTripPage() {
             <div style={{ gridRow: isMobile ? 'auto' : '1 / 3', borderRadius:'20px', overflow:'hidden', background:'#111', cursor:'pointer', position:'relative', minHeight:'320px', display:'flex', flexDirection:'column', justifyContent:'flex-end', transition:'all 0.25s' }}
               onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 32px rgba(0,0,0,0.2)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='none'; }}>
-              <img src={PACKAGES[0].img} alt={PACKAGES[0].title} loading="lazy" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+              <img src={PACKAGES[0].img} alt={PACKAGES[0].title} loading="lazy" decoding="async" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
               <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 60%, transparent 100%)' }} />
               <div style={{ position:'relative', padding:'28px' }}>
                 <span style={{ display:'inline-block', background:'rgba(201,160,80,0.9)', color:'#1a0f05', fontSize:'10px', fontWeight:800, letterSpacing:'1px', textTransform:'uppercase', padding:'4px 10px', borderRadius:'4px', marginBottom:'10px' }}>{PACKAGES[0].badge}</span>
@@ -1011,7 +1011,7 @@ export default function PlanTripPage() {
               <div key={i} style={{ borderRadius:'20px', overflow:'hidden', background:'#111', cursor:'pointer', minHeight:'148px', display:'flex', flexDirection:'column', justifyContent:'flex-end', position:'relative', transition:'all 0.25s' }}
                 onMouseEnter={e => { e.currentTarget.style.transform='translateY(-3px)'; e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.2)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='none'; }}>
-                <img src={p.img} alt={p.title} loading="lazy" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+                <img src={p.img} alt={p.title} loading="lazy" decoding="async" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
                 <div style={{ position:'absolute', inset:0, background:'linear-gradient(to top, rgba(0,0,0,0.68) 0%, transparent 100%)' }} />
                 <div style={{ position:'relative', padding:'20px' }}>
                   <span style={{ display:'inline-block', background:'rgba(255,255,255,0.2)', color:'#fff', fontSize:'9px', fontWeight:800, letterSpacing:'1px', textTransform:'uppercase', padding:'3px 8px', borderRadius:'4px', marginBottom:'7px' }}>{p.badge}</span>
@@ -1082,7 +1082,7 @@ export default function PlanTripPage() {
             BOTTOM CTA STRIP
         ═══════════════════════════════════════ */}
         <div style={{ position:'relative', padding: isMobile ? '48px 16px' : '80px 24px', textAlign:'center', overflow:'hidden' }}>
-          <img src="https://images.unsplash.com/photo-1578895101408-1a36b834405b?auto=format&fit=crop&w=1920&q=80" alt="" aria-hidden style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
+          <img src="https://images.unsplash.com/photo-1578895101408-1a36b834405b?auto=format&fit=crop&w=1920&q=80" alt="" aria-hidden loading="lazy" decoding="async" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} />
           <div aria-hidden style={{ position:'absolute', inset:0, background:'linear-gradient(135deg, rgba(10,6,18,0.82) 0%, rgba(20,10,10,0.75) 100%)' }} />
           <div style={{ position:'relative', maxWidth:'560px', margin:'0 auto' }}>
             <div style={{ fontWeight:800, fontSize: isMobile ? '24px' : '32px', color:'#fff', letterSpacing:'-0.025em', marginBottom:'12px', lineHeight:1.2 }}>

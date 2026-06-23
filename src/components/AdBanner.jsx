@@ -52,6 +52,8 @@ export default function AdBanner() {
           <img
             src="/16945254-1778843998252.gif"
             alt="Advertisement"
+            loading="lazy"
+            decoding="async"
             style={{
               width: '100%',
               height: 'auto',

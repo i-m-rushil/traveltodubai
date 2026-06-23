@@ -320,6 +320,8 @@ export default function AdminPosts() {
                         <img
                           src={post.featured_image || ''}
                           alt={post.title}
+                          loading="lazy"
+                          decoding="async"
                           style={{
                             width: 48, height: 48, borderRadius: 8,
                             objectFit: 'cover', flexShrink: 0,
@@ -351,7 +353,7 @@ export default function AdminPosts() {
                     <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {post.author?.avatar_url ? (
-                          <img src={post.author.avatar_url} alt={post.author?.name || ''} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                          <img src={post.author.avatar_url} alt={post.author?.name || ''} loading="lazy" decoding="async" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                         ) : (
                           <div style={{
                             width: 28, height: 28, borderRadius: '50%',

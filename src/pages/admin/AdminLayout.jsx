@@ -98,6 +98,8 @@ function Sidebar({ auth, onLogout, open, onClose, isMobile }) {
           <img
             src="/Travel-to-Dubai-Logo.svg"
             alt="Travel to Dubai"
+            loading="lazy"
+            decoding="async"
             style={{ filter: 'brightness(0) invert(1)', display: 'block', height: 100, width: 'auto' }}
           />
           <span

@@ -107,7 +107,7 @@ export default function PublisherAdvertisers() {
               <div style={{ display: 'flex', gap: 6 }}>
                 {adv.creatives.slice(0, 3).map((url, i) => (
                   <div key={i} style={{ flex: 1, borderRadius: 6, overflow: 'hidden', paddingBottom: '40%', position: 'relative', background: '#f1f5f9' }}>
-                    <img src={url} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={url} alt="" loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 ))}
                 {adv.creatives.length > 3 && (
@@ -161,7 +161,7 @@ export default function PublisherAdvertisers() {
             cursor: 'zoom-out',
           }}
         >
-          <img src={lightbox} alt="Creative" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
+          <img src={lightbox} alt="Creative" loading="lazy" decoding="async" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}
     </div>

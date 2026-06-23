@@ -76,7 +76,7 @@ function FeaturedCard({ article }) {
       }}
     >
       <div style={{ position: 'relative', height: '240px', overflow: 'hidden' }}>
-        <img src={article.image} alt={article.title}
+        <img src={article.image} alt={article.title} loading="lazy" decoding="async"
           style={{
             width: '100%', height: '100%', objectFit: 'cover',
             transform: hovered ? 'scale(1.06)' : 'scale(1)',
@@ -143,7 +143,7 @@ function ListCard({ article }) {
       }}
     >
       <div style={{ position: 'relative', height: '72px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-        <img src={article.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={article.image} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
       </div>
       <div>
         <span style={{
@@ -185,7 +185,7 @@ function GridCard({ article }) {
       }}
     >
       <div style={{ position: 'relative', height: '160px', overflow: 'hidden' }}>
-        <img src={article.image} alt={article.title}
+        <img src={article.image} alt={article.title} loading="lazy" decoding="async"
           style={{
             width: '100%', height: '100%', objectFit: 'cover',
             transform: hovered ? 'scale(1.07)' : 'scale(1)',

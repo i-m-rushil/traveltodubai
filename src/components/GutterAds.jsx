@@ -93,6 +93,8 @@ function AdCard() {
         <img
           src="/11459335.webp"
           alt="Advertisement"
+          loading="lazy"
+          decoding="async"
           style={{ width: '100%', height: 'auto', display: 'block' }}
         />
       </a>

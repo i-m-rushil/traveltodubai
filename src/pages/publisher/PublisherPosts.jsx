@@ -245,6 +245,8 @@ function TableRow({ post, confirmDelete, setConfirmDelete, onDelete, isMobile, n
               <img
                 src={post.featured_image}
                 alt={post.title}
+                loading="lazy"
+                decoding="async"
                 style={{ width: 60, height: 44, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
               />
             ) : (
@@ -513,6 +515,8 @@ function GridView({ posts, confirmDelete, setConfirmDelete, onDelete, isMobile }
               <img
                 src={post.featured_image}
                 alt={post.title}
+                loading="lazy"
+                decoding="async"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
             ) : (

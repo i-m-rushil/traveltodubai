@@ -240,7 +240,7 @@ export default function AdminAdvertisers() {
           background: 'rgba(0,0,0,0.92)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
         }}>
-          <img src={lightbox} alt="Creative" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
+          <img src={lightbox} alt="Creative" loading="lazy" decoding="async" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8 }} />
         </div>
       )}
     </div>
@@ -515,7 +515,7 @@ function AdvertiserForm({ initial, onSave, onClose }) {
               {form.creatives.map((url, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 40, height: 28, borderRadius: 4, overflow: 'hidden', flexShrink: 0, background: '#f1f5f9' }}>
-                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <span style={{ flex: 1, fontSize: 11, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{url}</span>
                   <button type="button" onClick={() => removeCreative(i)} style={{
@@ -742,7 +742,7 @@ export function AdvertiserModal({ adv, onClose, onImageClick, isAdmin, onEdit, o
                     border: '1px solid #e2e8f0', position: 'relative',
                     paddingBottom: adv.creatives.length === 1 ? '42%' : '62%', background: '#f8fafc',
                   }}>
-                    <img src={url} alt={`Creative ${i + 1}`} style={{
+                    <img src={url} alt={`Creative ${i + 1}`} loading="lazy" decoding="async" style={{
                       position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
                       transition: 'transform 0.3s',
                     }}

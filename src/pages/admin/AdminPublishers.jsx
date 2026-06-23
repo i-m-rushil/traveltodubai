@@ -339,7 +339,7 @@ export default function AdminPublishers() {
                   <td style={{ padding: '14px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       {pub.avatarUrl ? (
-                        <img src={pub.avatarUrl} alt={pub.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                        <img src={pub.avatarUrl} alt={pub.name} loading="lazy" decoding="async" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                       ) : (
                         <div style={{
                           width: 36, height: 36, borderRadius: '50%',

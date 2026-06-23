@@ -179,7 +179,7 @@ function GuideCard({ article }) {
       }}
     >
       <div style={{ position: 'relative', height: '160px', overflow: 'hidden' }}>
-        <img src={article.image} alt={article.title}
+        <img src={article.image} alt={article.title} loading="lazy" decoding="async"
           style={{
             width: '100%', height: '100%', objectFit: 'cover',
             transform: hovered ? 'scale(1.06)' : 'scale(1)',

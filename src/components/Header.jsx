@@ -67,7 +67,7 @@ export default function Header() {
 
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai"
+            <img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai" loading="eager" decoding="async"
               style={{ height: isMobile ? '46px' : '80px', width: 'auto', display: 'block' }} />
           </Link>
 
@@ -269,7 +269,7 @@ export default function Header() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '14px 18px', borderBottom: '2px solid var(--brand)', flexShrink: 0,
           }}>
-            <img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai" style={{ height: '44px', width: 'auto' }} />
+            <img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai" loading="eager" decoding="async" style={{ height: '44px', width: 'auto' }} />
             <button onClick={() => setMenuOpen(false)} style={{
               width: '36px', height: '36px', borderRadius: '8px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -305,7 +305,7 @@ export default function Header() {
       {/* Hidden preloader — fetches all mega menu images on page load so they're cached when the menu opens */}
       <div aria-hidden="true" style={{ display: 'none' }}>
         {navLinks.flatMap(link => link.sub).map(item => (
-          <img key={item.img} src={item.img} alt="" />
+          <img key={item.img} src={item.img} alt="" loading="lazy" decoding="async" />
         ))}
       </div>
     </>

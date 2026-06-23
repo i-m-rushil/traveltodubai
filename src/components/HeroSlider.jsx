@@ -57,7 +57,7 @@ export default function HeroSlider() {
           transition: 'opacity 0.8s ease',
           zIndex: i === current ? 1 : 0,
         }}>
-          <img src={s.image} alt={s.title} loading={i === 0 ? 'eager' : 'lazy'}
+          <img src={s.image} alt={s.title} loading={i === 0 ? 'eager' : 'lazy'} decoding="async"
             style={{
               width: '100%', height: '100%', objectFit: 'cover',
               transform: i === current ? 'scale(1.04)' : 'scale(1)',
@@ -195,7 +195,7 @@ export default function HeroSlider() {
                 transition: 'all 0.3s',
                 boxShadow: i === current ? 'var(--shadow-gold)' : 'none',
               }}>
-                <img src={s.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={s.image} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </button>
             ))}
           </div>

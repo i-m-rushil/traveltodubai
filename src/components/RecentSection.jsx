@@ -91,7 +91,7 @@ function ArticleCard({ article, featured }) {
     >
       {/* Image */}
       <div style={{ position: 'relative', height: featured ? (isMobile ? '210px' : '280px') : '165px', overflow: 'hidden' }}>
-        <img src={article.image} alt={article.title}
+        <img src={article.image} alt={article.title} loading="lazy" decoding="async"
           style={{
             width: '100%', height: '100%', objectFit: 'cover',
             transform: hovered ? 'scale(1.05)' : 'scale(1)',
@@ -225,7 +225,7 @@ function Sidebar({ categorySlug = null, emirate = null }) {
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
               <div style={{ position: 'relative', flexShrink: 0 }}>
-                <img src={a.image} alt="" style={{ width: '68px', height: '50px', objectFit: 'cover', borderRadius: '6px' }} />
+                <img src={a.image} alt="" loading="lazy" decoding="async" style={{ width: '68px', height: '50px', objectFit: 'cover', borderRadius: '6px' }} />
                 <span style={{
                   position: 'absolute', bottom: '-6px', right: '-6px',
                   background: 'var(--brand)', color: '#fff',

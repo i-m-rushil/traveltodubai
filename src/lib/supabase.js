@@ -38,7 +38,7 @@ export function articlesQuery() {
     `);
 }
 
-export async function getPublishedArticles({ categoryId, emirate, area, limit = 12, offset = 0 } = {}) {
+export async function getPublishedArticles({ categoryId, emirate, emirates, area, limit = 12, offset = 0 } = {}) {
   let q = articlesQuery()
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -49,6 +49,9 @@ export async function getPublishedArticles({ categoryId, emirate, area, limit = 
   }
   if (emirate) {
     q = q.eq('emirate', emirate);
+  }
+  if (emirates?.length) {
+    q = q.in('emirate', emirates);
   }
   if (area) {
     q = q.eq('area', area);
@@ -73,18 +76,19 @@ export async function getAllCategories() {
     .order('label');
 }
 
-export async function getArticleCount(categoryId, { area } = {}) {
+export async function getArticleCount(categoryId, { area, emirates } = {}) {
   let q = supabase
     .from('articles')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'published');
   if (categoryId) q = q.eq('category_id', categoryId);
   if (area) q = q.eq('area', area);
+  if (emirates?.length) q = q.in('emirate', emirates);
   const { count } = await q;
   return count || 0;
 }
 
-export async function getMostViewedArticles(limit = 5, { categoryId, emirate } = {}) {
+export async function getMostViewedArticles(limit = 5, { categoryId, emirate, emirates } = {}) {
   let q = supabase
     .from('articles')
     .select(`
@@ -97,6 +101,7 @@ export async function getMostViewedArticles(limit = 5, { categoryId, emirate } =
     .limit(limit);
   if (categoryId) q = q.eq('category_id', categoryId);
   if (emirate) q = q.eq('emirate', emirate);
+  if (emirates?.length) q = q.in('emirate', emirates);
   return q;
 }
 

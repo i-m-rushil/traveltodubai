@@ -214,7 +214,7 @@ export default function ProfilePage() {
               {/* Avatar */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
                 {profile.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt={profile.name} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={profile.avatarUrl} alt={profile.name} loading="lazy" decoding="async" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                 ) : (
                   <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 28, fontWeight: 700, color: '#fff', userSelect: 'none' }}>{getInitials(profile.name)}</span>
@@ -358,7 +358,7 @@ export default function ProfilePage() {
               {/* Account Info Card */}
               <div style={{ ...cardStyle, textAlign: 'center' }}>
                 {profile.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt={profile.name} style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block' }} />
+                  <img src={profile.avatarUrl} alt={profile.name} loading="lazy" decoding="async" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', margin: '0 auto 14px', display: 'block' }} />
                 ) : (
                   <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                     <span style={{ fontFamily: 'var(--font-ui)', fontSize: 28, fontWeight: 700, color: '#fff', userSelect: 'none' }}>{getInitials(profile.name)}</span>

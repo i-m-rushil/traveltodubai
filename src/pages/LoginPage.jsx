@@ -100,6 +100,8 @@ export default function LoginPage() {
           <img
             src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=1400&q=90&fit=crop"
             alt="Dubai skyline"
+            loading="lazy"
+            decoding="async"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
           <div style={{
@@ -108,7 +110,7 @@ export default function LoginPage() {
           }} />
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '40px 48px' }}>
             <Link to="/" style={{ display: 'inline-block' }}>
-              <img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai"
+              <img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai" loading="lazy" decoding="async"
                 style={{ height: 64, width: 'auto', filter: 'brightness(0) invert(1)' }} />
             </Link>
             <div>
@@ -148,7 +150,7 @@ export default function LoginPage() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', background: '#fff' }}>
         {isMobile && (
           <div style={{ padding: '24px 28px 0', borderBottom: '1px solid var(--border)' }}>
-            <Link to="/"><img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai" style={{ height: 48, width: 'auto' }} /></Link>
+            <Link to="/"><img src="/Travel-to-Dubai-Logo.svg" alt="Travel to Dubai" loading="lazy" decoding="async" style={{ height: 48, width: 'auto' }} /></Link>
           </div>
         )}
 

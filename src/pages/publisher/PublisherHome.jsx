@@ -538,6 +538,8 @@ function RecentPostRow({ post, isLast }) {
         <img
           src={post.featured_image}
           alt={post.title}
+          loading="lazy"
+          decoding="async"
           style={{
             width: 60,
             height: 44,

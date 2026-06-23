@@ -361,7 +361,7 @@ export default function ComposePage() {
                   placeholder="https://example.com/image.jpg"
                 />
                 {insertUrl && (
-                  <img src={insertUrl} alt="preview" onError={e => e.target.style.display = 'none'} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 14 }} />
+                  <img src={insertUrl} alt="preview" loading="lazy" decoding="async" onError={e => e.target.style.display = 'none'} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 8, marginBottom: 14 }} />
                 )}
               </>
             )}
@@ -442,7 +442,7 @@ export default function ComposePage() {
                 <div style={cardStyle}>
                   {post.featuredImage ? (
                     <>
-                      <img src={post.featuredImage} alt="featured" style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 10, display: 'block', marginBottom: 12 }} />
+                      <img src={post.featuredImage} alt="featured" loading="lazy" decoding="async" style={{ width: '100%', height: 200, objectFit: 'cover', borderRadius: 10, display: 'block', marginBottom: 12 }} />
                       <button onClick={() => setInsertModal('featured')} style={{ background: '#fff', color: 'var(--text-dark)', border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 16px', fontFamily: 'var(--font-ui)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Change Image</button>
                     </>
                   ) : (
@@ -527,7 +527,7 @@ export default function ComposePage() {
             {activeTab === 'preview' && (
               <div style={cardStyle}>
                 {post.featuredImage && (
-                  <img src={post.featuredImage} alt="featured" style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 10, marginBottom: 24, display: 'block' }} />
+                  <img src={post.featuredImage} alt="featured" loading="lazy" decoding="async" style={{ width: '100%', height: 280, objectFit: 'cover', borderRadius: 10, marginBottom: 24, display: 'block' }} />
                 )}
                 {post.title ? (
                   <h1 style={{ fontFamily: 'var(--font-headline)', fontSize: 30, fontWeight: 800, color: 'var(--text-dark)', marginBottom: 20, lineHeight: 1.3 }}>{post.title}</h1>

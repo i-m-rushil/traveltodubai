@@ -96,7 +96,7 @@ function ExperienceCard({ exp, index, isMobile }) {
       }}
     >
       {/* Background image */}
-      <img src={exp.image} alt={exp.title}
+      <img src={exp.image} alt={exp.title} loading="lazy" decoding="async"
         style={{
           width: '100%', height: '100%', objectFit: 'cover',
           transform: hovered ? 'scale(1.08)' : 'scale(1)',

@@ -59,6 +59,8 @@ function InlineAd({ src, headline, sub, cta = 'Learn More →' }) {
       <a href="#" style={{ display: 'block', textDecoration: 'none', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)', position: 'relative' }}>
         <img
           src={src} alt="" aria-hidden="true"
+          loading="lazy"
+          decoding="async"
           style={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }}
         />
         <div style={{
@@ -124,7 +126,7 @@ function RelatedCard({ article }) {
       }}>
         <div style={{ height: 165, overflow: 'hidden' }}>
           <img
-            src={article.image} alt={article.title} loading="lazy"
+            src={article.image} alt={article.title} loading="lazy" decoding="async"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.45s' }}
           />
         </div>
@@ -296,6 +298,8 @@ export default function ArticlePage() {
         <img
           src={article.image}
           alt={article.title}
+          loading="lazy"
+          decoding="async"
           style={{
             width: '100%',
             height: isMobile ? 480 : 640,
@@ -387,7 +391,7 @@ export default function ArticlePage() {
                   overflow: 'hidden',
                 }}>
                   {article.authorAvatar
-                    ? <img src={article.authorAvatar} alt={article.author} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={article.authorAvatar} alt={article.author} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : initial}
                 </div>
                 <div>
@@ -474,7 +478,7 @@ export default function ArticlePage() {
                 overflow: 'hidden',
               }}>
                 {article.authorAvatar
-                  ? <img src={article.authorAvatar} alt={article.author} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={article.authorAvatar} alt={article.author} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : initial}
               </div>
               <div>

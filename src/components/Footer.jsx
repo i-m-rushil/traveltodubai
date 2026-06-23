@@ -103,6 +103,8 @@ export default function Footer() {
               <img
                 src="/Travel-to-Dubai-Logo.svg"
                 alt="Travel to Dubai"
+                loading="lazy"
+                decoding="async"
                 style={{ height: '100px', width: 'auto', display: 'block', filter: 'brightness(0) invert(1)' }}
               />
             </div>
